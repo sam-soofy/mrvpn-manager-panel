@@ -15,7 +15,7 @@ echo "[*] Updating apt index..."
 apt-get update -y
 
 echo "[*] Installing required packages..."
-apt-get install -y git python3 python3-pip screen
+apt-get install -y git python3 python3-pip python3-venv screen
 
 if [[ -d "${APP_DIR}/.git" ]]; then
   echo "[*] Repository already exists. Updating..."
@@ -28,14 +28,17 @@ fi
 
 cd "${APP_DIR}"
 
-if [[ -f "requirements.txt" ]]; then
-  echo "[*] Installing Python requirements..."
-  python3 -m pip install --upgrade pip
-  python3 -m pip install -r requirements.txt
-else
+if [[ ! -f "requirements.txt" ]]; then
   echo "[!] requirements.txt not found."
   exit 1
 fi
+
+echo "[*] Creating virtual environment..."
+python3 -m venv .venv
+
+echo "[*] Installing Python requirements into venv..."
+./.venv/bin/pip install --upgrade pip
+./.venv/bin/pip install -r requirements.txt
 
 if screen -ls | grep -q "\.${SESSION_NAME}[[:space:]]"; then
   echo "[*] Screen session '${SESSION_NAME}' already exists. Restarting it..."
@@ -43,12 +46,9 @@ if screen -ls | grep -q "\.${SESSION_NAME}[[:space:]]"; then
 fi
 
 echo "[*] Starting MRVPN panel in screen session '${SESSION_NAME}'..."
-screen -dmS "${SESSION_NAME}" bash -lc "cd '${APP_DIR}' && exec python3 mrvpn_manager_panel.py"
+screen -dmS "${SESSION_NAME}" bash -lc "cd '${APP_DIR}' && exec ./.venv/bin/python mrvpn_manager_panel.py"
 
 echo
 echo "[✓] Installed successfully."
 echo "[✓] Screen session: ${SESSION_NAME}"
 echo "[✓] Attach with: screen -r ${SESSION_NAME}"
-echo "[✓] Detach with: Ctrl+A then D"
-echo
-echo "[*] The panel login credentials will be printed by the Python app on first run."

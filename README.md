@@ -13,7 +13,8 @@ Simple VPN monitoring + control panel (Flask + Socket.IO)
 ## Install
 
 ```bash
-sudo bash <(curl -s https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/install.sh)
+curl -fsSL https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/install.sh -o install.sh
+sudo bash install.sh
 ```
 
 ## Access it:
