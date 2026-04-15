@@ -14,7 +14,10 @@ Lightweight web-based monitoring and control panel for the `masterdnsvpn` servic
 ## Installation
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/install.sh)
+rm install.sh
+
+curl -fsSL https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/install.sh -o install.sh
+sudo bash install.sh
 ```
 
 ## First Login
