@@ -3,7 +3,8 @@ set -euo pipefail
 
 REPO_URL="https://github.com/sam-soofy/mrvpn-manager-panel.git"
 APP_DIR="/opt/mrvpn-manager-panel"
-SESSION_NAME="mrvpn"
+SERVICE_NAME="mrvpn-manager-panel"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "[!] Please run this script as root."
@@ -15,7 +16,7 @@ echo "[*] Updating apt index..."
 apt-get update -y
 
 echo "[*] Installing required packages..."
-apt-get install -y git python3 python3-pip python3-venv screen
+apt-get install -y git python3 python3-pip python3-venv
 
 if [[ -d "${APP_DIR}/.git" ]]; then
   echo "[*] Repository already exists. Updating..."
@@ -40,15 +41,43 @@ echo "[*] Installing Python requirements into venv..."
 ./.venv/bin/pip install --upgrade pip
 ./.venv/bin/pip install -r requirements.txt
 
-if screen -ls | grep -q "\.${SESSION_NAME}[[:space:]]"; then
-  echo "[*] Screen session '${SESSION_NAME}' already exists. Restarting it..."
-  screen -S "${SESSION_NAME}" -X quit || true
+echo "[*] Installing systemd service for auto-start on boot..."
+cat > "${SERVICE_FILE}" <<UNIT
+[Unit]
+Description=MRVPN Manager Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=${APP_DIR}
+ExecStart=${APP_DIR}/.venv/bin/python ${APP_DIR}/mrvpn_manager_panel.py
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable "${SERVICE_NAME}.service"
+
+if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
+  echo "[*] Restarting existing service..."
+  systemctl restart "${SERVICE_NAME}.service"
+else
+  echo "[*] Starting service..."
+  systemctl start "${SERVICE_NAME}.service"
 fi
 
-echo "[*] Starting MRVPN panel in screen session '${SESSION_NAME}'..."
-screen -dmS "${SESSION_NAME}" bash -lc "cd '${APP_DIR}' && exec ./.venv/bin/python mrvpn_manager_panel.py"
-
 echo
+
 echo "[✓] Installed successfully."
-echo "[✓] Screen session: ${SESSION_NAME}"
-echo "[✓] Attach with: screen -r ${SESSION_NAME}"
+echo "[✓] Service: ${SERVICE_NAME}.service"
+echo "[✓] Auto-start on boot: enabled"
+echo "[✓] Check status: systemctl status ${SERVICE_NAME}.service"
+echo "[✓] View logs: journalctl -u ${SERVICE_NAME}.service -f"
+echo "[✓] Web panel should be available on the configured port inside mrvpn_manager_config.json"
