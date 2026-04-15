@@ -692,6 +692,10 @@ DASHBOARD_HTML = """
 # =========================
 # STARTUP
 # =========================
+# NOTE:
+# Flask-SocketIO refuses Werkzeug in production-like service runs unless
+# allow_unsafe_werkzeug=True is passed. This keeps compatibility with the
+# current systemd setup used by the project.
 if __name__ == "__main__":
     if os.geteuid() != 0:
         print("Run as root")
@@ -699,5 +703,9 @@ if __name__ == "__main__":
 
     start_monitor_once()
     socketio.run(
-        app, host="0.0.0.0", port=int(config.get("web_port", DEFAULT_WEB_PORT))
+        app,
+        host="0.0.0.0",
+        port=int(config.get("web_port", DEFAULT_WEB_PORT)),
+        allow_unsafe_werkzeug=True,
+        use_reloader=False,
     )
