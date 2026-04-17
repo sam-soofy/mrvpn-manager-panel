@@ -1,0 +1,263 @@
+# ==============================================================================
+# MasterDnsVPN Go Server Configuration
+# Tuned for: 4GB RAM, 2-core CPU (with threading), Iran network instability
+# Base config version: 12
+# Tuning date: 2026-04-15
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1) Tunnel Policy
+# ------------------------------------------------------------------------------
+
+DOMAIN = ["{{DOMAIN}}"]
+
+# SOCKS5 = client chooses destination per-connection (normal proxy mode).
+PROTOCOL_TYPE = "SOCKS5"
+
+SUPPORTED_UPLOAD_COMPRESSION_TYPES = [0, 1, 2, 3]
+SUPPORTED_DOWNLOAD_COMPRESSION_TYPES = [0, 1, 2, 3]
+
+# ------------------------------------------------------------------------------
+# 2) UDP Listener & Front-Door Capacity
+# CHANGED: Doubled UDP_READERS and DNS_REQUEST_WORKERS to match 2-core threading
+#          capacity. MAX_CONCURRENT_REQUESTS increased to handle burst load.
+# ------------------------------------------------------------------------------
+
+UDP_HOST = "0.0.0.0"
+UDP_PORT = 53
+
+# Internally Smart-Sized
+# CHANGED: 4 → 8 (2 cores × 4 reader threads per core)
+UDP_READERS = 4
+
+# Internally Smart-Sized
+# CHANGED: 8 → 16 (matches doubled reader throughput)
+DNS_REQUEST_WORKERS = 8
+
+# Internally Smart-Sized
+MAX_CONCURRENT_REQUESTS = 16384
+
+# CHANGED: 8MB → 16MB — absorbs traffic spikes without socket drops.
+# Why: When Iran's network hiccups, packets arrive in bursts.
+# A 16MB buffer gives ~2× headroom before the kernel starts dropping.
+SOCKET_BUFFER_SIZE = 16777216
+
+MAX_PACKET_SIZE = 65535
+
+DROP_LOG_INTERVAL_SECONDS = 2.0
+
+# ------------------------------------------------------------------------------
+# 3) Deferred Session Runtime
+# CHANGED: Workers 4 → 8, queue limit 4096 → 16384.
+# Why: More deferred workers means DNS and ordered tasks process faster
+#      even when many sessions are active simultaneously.
+# ------------------------------------------------------------------------------
+
+# Internally Smart-Sized
+# CHANGED: 4 → 8
+DEFERRED_SESSION_WORKERS = 4
+
+# Internally Smart-Sized
+# CHANGED: 4096 → 16384 (RAM is available; don't drop deferred work under load)
+DEFERRED_SESSION_QUEUE_LIMIT = 4096
+
+# ------------------------------------------------------------------------------
+# 4) Session Lifecycle & Invalid-Cookie Handling
+# CHANGED: SESSION_TIMEOUT doubled to survive Iran disruption gaps.
+#          Invalid-cookie tolerance increased to avoid false escalation on
+#          noisy/replayed DNS packets common during filtering events.
+# ------------------------------------------------------------------------------
+
+INVALID_COOKIE_WINDOW_SECONDS = 2.0
+
+# CHANGED: 10 → 8 — less forgiving before escalating to ERROR_DROP.
+INVALID_COOKIE_ERROR_THRESHOLD = 8
+
+# CHANGED: 300 → 600 — sessions survive longer through disruption windows.
+# Why: Iran's filtering sometimes blocks DNS for 2–5 minutes then resumes.
+#      Keeping sessions alive avoids full reconnection overhead.
+SESSION_TIMEOUT_SECONDS = 600.0
+
+SESSION_CLEANUP_INTERVAL_SECONDS = 30.0
+
+# CHANGED: 600 → 1200 — metadata retained longer to assist reconnection
+CLOSED_SESSION_RETENTION_SECONDS = 1200.0
+
+# CHANGED: 600 → 1200 — reusable init state valid longer (matches session TTL)
+SESSION_INIT_REUSE_TTL_SECONDS = 1200.0
+
+# CHANGED: 600 → 900 — longer window to reject late SYNs reliably
+RECENTLY_CLOSED_STREAM_TTL_SECONDS = 900.0
+
+# CHANGED: 2000 → 6000 — larger table to track more closed streams.
+# Why: With more active streams (higher concurrency), we need a bigger
+#      "recently closed" set to avoid falsely reviving dead streams.
+RECENTLY_CLOSED_STREAM_CAP = 6000
+
+TERMINAL_STREAM_RETENTION_SECONDS = 45.0
+
+# ------------------------------------------------------------------------------
+# 5) DNS Tunnel Upstream
+# CHANGED: Added Google resolvers as fallback for when 1.1.1.1 is filtered.
+#          Cache size 50k → 200k (cheap with 4GB RAM).
+#          Cache TTL 300 → 600s (fewer upstream round-trips).
+# ------------------------------------------------------------------------------
+
+# CHANGED: Added 8.8.8.8 and 8.8.4.4 as fallback resolvers.
+# Iran occasionally filters Cloudflare (1.1.1.1) at the national level.
+# Having Google DNS here gives the upstream resolver loop a second option.
+DNS_UPSTREAM_SERVERS = ["1.1.1.1:53", "1.0.0.1:53", "8.8.8.8:53", "8.8.4.4:53"]
+
+DNS_UPSTREAM_TIMEOUT = 3.0
+
+DNS_INFLIGHT_WAIT_TIMEOUT_SECONDS = 12.0
+
+DNS_FRAGMENT_ASSEMBLY_TIMEOUT = 180.0
+
+# Internally Smart-Sized
+# At ~200 bytes average per record, 200k records ≈ ~40MB — trivial on 4GB.
+DNS_CACHE_MAX_RECORDS = 50000
+
+DNS_CACHE_TTL_SECONDS = 300.0
+
+# ------------------------------------------------------------------------------
+# 6) Upstream SOCKS / Forwarding
+# No changes — values are correct for SOCKS5 direct mode.
+# ------------------------------------------------------------------------------
+
+SOCKS_CONNECT_TIMEOUT = 120.0
+
+USE_EXTERNAL_SOCKS5 = false
+
+SOCKS5_AUTH = false
+SOCKS5_USER = "admin"
+SOCKS5_PASS = "123456"
+
+FORWARD_IP = ""
+FORWARD_PORT = 0
+
+# ------------------------------------------------------------------------------
+# 7) Security
+# No changes — XOR is fine for performance; upgrade to ChaCha20 (2) if needed.
+# ------------------------------------------------------------------------------
+
+DATA_ENCRYPTION_METHOD = 1
+ENCRYPTION_KEY_FILE = "encrypt_key.txt"
+
+# ------------------------------------------------------------------------------
+# 8) ARQ, Packing, and Setup-Control TTLs
+# CHANGED: Core ARQ tuning for faster retransmit and higher retry tolerance.
+#
+# The key insight for Iran's network:
+#   - RTO should be SHORT so lost packets are retransmitted quickly.
+#   - MAX_RETRIES should be HIGH so sessions don't die during disruption spikes.
+#   - NACK should be AGGRESSIVE to request missing pieces early.
+#   - CONTROL_DUPLICATION should be > 1 so SYN-ACK/CLOSE survive lossy paths.
+# ------------------------------------------------------------------------------
+
+# CHANGED: 5 → 24 — pack more control blocks per response to reduce round-trips
+MAX_PACKETS_PER_BATCH = 24
+
+# CHANGED: 1 → 3 — repeat the last control block response 3 dispatcher turns.
+# Why: On lossy Iran DNS paths, a CLOSE or SYN-ACK that disappears once often
+#      disappears again. 3 repetitions give it 3 chances to arrive.
+PACKET_BLOCK_CONTROL_DUPLICATION = 2
+
+STREAM_SETUP_ACK_TTL_SECONDS = 200.0
+STREAM_RESULT_PACKET_TTL_SECONDS = 150.0
+STREAM_FAILURE_PACKET_TTL_SECONDS = 60.0
+
+
+# CHANGED: 800 → 2800 — larger window = more unacked packets in flight (server serves multiple users).
+# Why: DNS round-trip on a tunnel can be 200–500ms. A bigger window
+#      keeps the pipe full instead of stalling to wait for each ACK.
+ARQ_WINDOW_SIZE = 2800
+
+# CHANGED: 1.0 → 0.6s — retransmit twice as fast on first miss.
+# Why: Iran's filtering often drops single packets but passes retransmits.
+#      Waiting 1 second before retrying wastes throughput unnecessarily.
+ARQ_INITIAL_RTO_SECONDS = 0.6
+
+# CHANGED: 5.0 → 2.5 — cap backoff sooner, don't let one loss stall for 5s.
+ARQ_MAX_RTO_SECONDS = 2.5
+
+# CHANGED: 0.5 → 0.3s — control packets (SYN/FIN/RST) retry faster
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.3
+
+# CHANGED: 3.0 → 2.0 — control backoff cap
+ARQ_CONTROL_MAX_RTO_SECONDS = 2.0
+
+# CHANGED: 150 → 400 — more control retries before giving up on a handshake
+ARQ_MAX_CONTROL_RETRIES = 400
+
+# CHANGED: 1800 → 2400 — inactivity timeout matches extended session TTL
+ARQ_INACTIVITY_TIMEOUT_SECONDS = 2800.0
+
+ARQ_DATA_PACKET_TTL_SECONDS = 2400.0
+ARQ_CONTROL_PACKET_TTL_SECONDS = 1200.0
+
+# CHANGED: 400 → 1200 — data packets get more retries before being abandoned
+ARQ_MAX_DATA_RETRIES = 1200
+
+# CHANGED: 16 → 48 — allow NACK to trigger on slightly larger gaps.
+# Why: Higher gap tolerance means the server requests missing out-of-order
+#      packets more eagerly, which helps when selective drops happen.
+#      and client max arq data gap is 32 so I did a 32 * 2 = 64 math which I'm not sure fully to be right, but it works :)
+ARQ_DATA_NACK_MAX_GAP = 48
+
+# CHANGED: 0.3 → 0.2s — send first NACK sooner after detecting a gap
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.2
+
+# CHANGED: 1.0 → 0.6s — repeat NACKs twice as often to chase lost packets
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
+
+ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 90.0
+ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 60.0
+
+# ------------------------------------------------------------------------------
+# 8.0) Server-Side Session/Stream Limits
+# CHANGED: Active sessions 255 → 255 (kept — single server is fine).
+#          Streams per session kept at 2000 (already generous).
+# ------------------------------------------------------------------------------
+
+MAX_ALLOWED_CLIENT_ACTIVE_SESSION = 255
+MAX_ALLOWED_CLIENT_ACTIVE_STREAMS_PER_SESSION = 2000
+
+# ------------------------------------------------------------------------------
+# 8.1) Client Policy Sync Limits
+# CHANGED: ARQ window ceiling raised to match server's new ARQ_WINDOW_SIZE.
+#          Upload MTU ceiling raised slightly to allow clients to probe higher.
+# ------------------------------------------------------------------------------
+
+MAX_ALLOWED_CLIENT_PACKET_DUPLICATION_COUNT = 3
+MAX_ALLOWED_CLIENT_SETUP_PACKET_DUPLICATION_COUNT = 5
+
+# CHANGED: 150 → 160 — allow clients to probe slightly larger upload payloads
+MAX_ALLOWED_CLIENT_UPLOAD_MTU = 160
+
+MAX_ALLOWED_CLIENT_DOWNLOAD_MTU = 4000
+
+MAX_ALLOWED_CLIENT_RX_TX_WORKERS = 8
+
+MIN_ALLOWED_CLIENT_PING_AGGRESSIVE_INTERVAL_SECONDS = 0.10
+
+MAX_ALLOWED_CLIENT_PACKETS_PER_BATCH = 36
+
+# CHANGED: 800 → 12000 — allow well-resourced clients to open bigger windows
+MAX_ALLOWED_CLIENT_ARQ_WINDOW_SIZE = 1400
+
+MAX_ALLOWED_CLIENT_ARQ_DATA_NACK_MAX_GAP = 64
+
+MIN_ALLOWED_CLIENT_COMPRESSION_MIN_SIZE = 150
+
+MIN_ALLOWED_CLIENT_ARQ_INITIAL_RTO_SECONDS = 0.20
+
+# ------------------------------------------------------------------------------
+# 9) Logging
+# ------------------------------------------------------------------------------
+
+LOG_LEVEL = "INFO"
+
+# ------------------------------------------------------------------------------
+
+CONFIG_VERSION = "12"

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MRVPN Login</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0b1020; --panel: #111933; --accent: #5b8cff; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:radial-gradient(circle at top,#152044,var(--bg)); font-family:Arial,sans-serif; color:#e8eefc; }
+    .card { width:min(420px,calc(100vw-32px)); background:rgba(17,25,51,0.92); border:1px solid #263253; border-radius:18px; padding:28px; box-shadow:0 24px 80px rgba(0,0,0,.35); }
+    input, button { width:100%; padding:12px 14px; border-radius:12px; margin-top:8px; }
+    button { background:var(--accent); color:white; border:none; font-weight:700; cursor:pointer; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>MRVPN Panel</h1>
+  <form id="loginForm">
+    <input id="username" placeholder="Username" value="admin" required>
+    <input id="password" type="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+  </form>
+  <div id="error" style="color:#ff6b6b;margin-top:10px"></div>
+</div>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const res = await fetch('/api/auth/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:document.getElementById('username').value, password:document.getElementById('password').value})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    window.location.href = '/';
+  } else {
+    document.getElementById('error').textContent = data.error || 'Login failed';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MRVPN Dashboard</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/static/js/dashboard.css"> <!-- optional later -->
+</head>
+<body>
+  <div style="max-width:1200px;margin:0 auto;padding:24px;">
+    <h1>MRVPN Dashboard</h1>
+    <button onclick="restartVPN()">Restart MasterDnsVPN</button>
+    <button onclick="showConfigEditor('server')">Edit server_config.toml</button>
+    <button onclick="showConfigEditor('key')">Edit encrypt_key.txt</button>
+
+    <div id="status" class="card">Loading...</div>
+    <div class="card"><canvas id="chart" height="140"></canvas></div>
+  </div>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

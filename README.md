@@ -1,15 +1,28 @@
-# MRVPN Manager Panel
+# MrVPN Manager Panel
 
-Lightweight web-based monitoring and control panel for the `masterdnsvpn` service.
+A lightweight web panel to manage and monitor servers running MasterDnsVPN.
 
 ## Features
+- JWT-based authentication (secure, stateless)
+- Install & manage specific MasterDnsVPN versions (April 5 / April 12)
+- Web-based config editor (`server_config.toml`, `encrypt_key.txt`)
+- Auto restart on config changes
+- Tuned configs with domain injection
+- Reinstall / version switching support
 
-- Web dashboard for CPU / RAM / Disk / Network
-- Real-time updates via Socket.IO
-- Interface traffic statistics
-- Restart VPN service from the web UI
-- Login system with generated credentials
-- Auto-start on reboot using `systemd`
+
+## A brief Introduction:
+
+I built a manager panel on top of MasterDnsVPN that adds:
+
+- JWT auth (no sessions)
+- Version-aware install (April 5 / April 12)
+- Web-based config editing with safe restart
+- Tuned configs with automatic domain injection
+- Easy reinstall & version switching
+
+Basically makes running and maintaining MasterDnsVPN servers much easier and cleaner.
+
 
 ## Installation
 
@@ -41,7 +54,7 @@ http://YOUR_SERVER_IP:5000
 
 | Part | Role |
 |------|------|
-| `install.sh` | One-time setup |
+| `install.sh` | One-time setup and reinstall and version change manger |
 | `mrvpn_manager_panel.py` | Main web app |
 | `systemd service` | Keeps the app running after reboot |
 
