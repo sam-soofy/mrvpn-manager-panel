@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# MRVPN Manager Panel + MasterDnsVPN Installer (v4)
-# Fixes: glob detection, service-dir discovery, config path, backup restore,
-#        better stray-file cleanup, credentials display block
+# MRVPN Manager Panel + MasterDnsVPN Installer (v5)
+# Fixes:
+#   - Tracked backup paths (no glob ambiguity, no stale-backup collisions)
+#   - Key gen runs BEFORE config restore (April 5 binary creates default config)
+#   - Temp backups cleaned up at exit via trap
+#   - Uninstall mode (downloads and runs uninstall.sh)
 # =============================================================================
 set -euo pipefail
 IFS=$'\n\t'
@@ -13,20 +16,52 @@ REPO_URL="https://github.com/sam-soofy/mrvpn-manager-panel.git"
 PANEL_SERVICE="mrvpn-manager-panel"
 MASTER_SERVICE="masterdnsvpn"
 EXECUTABLE="MasterDnsVPN_Server_Linux_AMD64"
+UNINSTALL_URL="https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/uninstall.sh"
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "[!] Run as root: sudo bash install.sh"
   exit 1
 fi
 
+# ── Per-run backup paths ───────────────────────────────────────────────────────
+# Fixed paths keyed by PID+timestamp — no glob ambiguity, no stale collisions.
+RUN_ID="$$_$(date +%s)"
+CONFIG_BACKUP="/tmp/mrvpn_server_config_${RUN_ID}.toml"
+KEY_BACKUP="/tmp/mrvpn_encrypt_key_${RUN_ID}.txt"
+HAS_CONFIG_BACKUP=false
+HAS_KEY_BACKUP=false
+
+cleanup_temp() {
+  $HAS_CONFIG_BACKUP && rm -f "$CONFIG_BACKUP" 2>/dev/null || true
+  $HAS_KEY_BACKUP    && rm -f "$KEY_BACKUP"    2>/dev/null || true
+}
+trap cleanup_temp EXIT
+
+# ── Mode selection ─────────────────────────────────────────────────────────────
 echo "========================================"
 echo "  MRVPN Manager Panel + MasterDnsVPN   "
 echo "========================================"
+echo ""
+echo "  1) Install / Update"
+echo "  2) Uninstall everything"
+echo ""
+read -r -p "Choose (1/2): " MODE_CHOICE
 
+if [[ "$MODE_CHOICE" == "2" ]]; then
+  echo "[*] Downloading uninstaller..."
+  curl -fsSL "$UNINSTALL_URL" -o /tmp/mrvpn_uninstall.sh
+  bash /tmp/mrvpn_uninstall.sh
+  rm -f /tmp/mrvpn_uninstall.sh
+  exit 0
+fi
+
+[[ "$MODE_CHOICE" != "1" ]] && echo "[!] Invalid choice" && exit 1
+
+echo ""
 read -r -p "Install/update Panel? (y/n): " DO_PANEL
 read -r -p "Install/update MasterDnsVPN? (y/n): " DO_MASTER
 
-VERSION="" USER_DOMAIN="" KEEP_CONFIG="n" KEEP_KEY="n"
+VERSION="" USER_DOMAIN=""
 
 if [[ "$DO_MASTER" == "y" ]]; then
   echo ""
@@ -51,107 +86,86 @@ stop_service() {
   local svc="$1"
   if systemctl list-units --full --all 2>/dev/null | grep -q "${svc}.service"; then
     echo "[*] Stopping + disabling ${svc}"
-    systemctl stop "${svc}" 2>/dev/null || true
+    systemctl stop    "${svc}" 2>/dev/null || true
     systemctl disable "${svc}" 2>/dev/null || true
     rm -f "/etc/systemd/system/${svc}.service"
   fi
 }
 
-# Read WorkingDirectory from a systemd service file.
-# Returns the path, or empty string if not found.
 get_service_workdir() {
   local svc_file="/etc/systemd/system/${1}.service"
-  if [[ -f "$svc_file" ]]; then
-    grep -E "^WorkingDirectory=" "$svc_file" | cut -d= -f2- | tr -d ' '
-  fi
+  [[ -f "$svc_file" ]] && grep -E "^WorkingDirectory=" "$svc_file" | cut -d= -f2- | tr -d ' '
 }
 
 # ── MasterDnsVPN file detection ───────────────────────────────────────────────
-# Checks whether a directory looks like a MasterDnsVPN install.
-# Uses ls-glob instead of [[ -f glob ]] which is unreliable in bash.
+
 looks_like_master() {
   local dir="$1"
   [[ -d "$dir" ]] || return 1
-  # Check for config or key files (version-agnostic)
   [[ -f "${dir}/server_config.toml" ]] && return 0
   [[ -f "${dir}/encrypt_key.txt" ]]    && return 0
-  # Check for any MasterDnsVPN binary (plain or versioned name)
   ls "${dir}"/MasterDnsVPN_Server_Linux_AMD64* 2>/dev/null | grep -q . && return 0
   return 1
 }
 
-# Backup a file to /tmp with a timestamp suffix, print the backup path.
-backup_file() {
-  local src="$1" tag="$2"
-  local dest="/tmp/${tag}_backup_$(date +%s)"
-  [[ -f "$src" ]] && cp "$src" "$dest" && echo "$dest"
+# ── Backup helpers ────────────────────────────────────────────────────────────
+
+do_backup_config() {
+  local src="$1"
+  cp "$src" "$CONFIG_BACKUP"
+  HAS_CONFIG_BACKUP=true
+  echo "[*] Config backed up to ${CONFIG_BACKUP}"
 }
 
-# Restore from the most recent matching backup.
-restore_latest_backup() {
-  local pattern="$1" dest="$2"
-  local latest
-  latest=$(ls -t ${pattern} 2>/dev/null | head -1)
-  [[ -n "$latest" ]] && cp "$latest" "$dest" && echo "[*] Restored from ${latest}"
+do_backup_key() {
+  local src="$1"
+  cp "$src" "$KEY_BACKUP"
+  HAS_KEY_BACKUP=true
+  echo "[*] Key backed up to ${KEY_BACKUP}"
 }
 
 # ── Stray-file cleanup ────────────────────────────────────────────────────────
-# Builds a list of directories to check, including:
-#   - the current working directory
-#   - /root (common location for official installer)
-#   - the WorkingDirectory from the existing masterdnsvpn service (if any)
-# Deduplicates against MASTER_DIR (our target) so we never pre-wipe our dest.
 
 cleanup_stray_files() {
   local CWD
   CWD="$(pwd)"
 
-  # Collect candidate dirs (may be the same path; we'll deduplicate)
   declare -a CANDIDATES=("$CWD")
 
-  # Where did the existing service (official or ours) run from?
   local SVC_DIR
-  SVC_DIR=$(get_service_workdir "$MASTER_SERVICE")
-  if [[ -n "$SVC_DIR" && "$SVC_DIR" != "$MASTER_DIR" ]]; then
-    CANDIDATES+=("$SVC_DIR")
-  fi
+  SVC_DIR=$(get_service_workdir "$MASTER_SERVICE" || true)
+  [[ -n "${SVC_DIR:-}" && "$SVC_DIR" != "$MASTER_DIR" ]] && CANDIDATES+=("$SVC_DIR")
+  [[ "/root" != "$CWD" && "/root" != "$MASTER_DIR" ]]    && CANDIDATES+=("/root")
 
-  # /root is where the official installer lands when run as root
-  if [[ "/root" != "$CWD" && "/root" != "$MASTER_DIR" ]]; then
-    CANDIDATES+=("/root")
-  fi
-
-  # Deduplicate and skip our own destination
   declare -A SEEN=()
   for dir in "${CANDIDATES[@]}"; do
-    [[ "$dir" == "$MASTER_DIR" ]] && continue   # never pre-wipe our dest
-    [[ -n "${SEEN[$dir]+_}" ]]  && continue     # already processed
+    [[ "$dir" == "$MASTER_DIR" ]] && continue
+    [[ -n "${SEEN[$dir]+_}" ]]    && continue
     SEEN[$dir]=1
 
-    if ! looks_like_master "$dir"; then
-      continue
-    fi
+    ! looks_like_master "$dir" && continue
 
     echo ""
     echo "[!] Found MasterDnsVPN files in: ${dir}"
 
-    if [[ -f "${dir}/server_config.toml" ]] && ask_yn "    Backup server_config.toml from ${dir}?"; then
-      backup_file "${dir}/server_config.toml" "server_config"
-      KEEP_CONFIG="y"
-    fi
-    if [[ -f "${dir}/encrypt_key.txt" ]] && ask_yn "    Backup encrypt_key.txt from ${dir}?"; then
-      backup_file "${dir}/encrypt_key.txt" "encrypt_key"
-      KEEP_KEY="y"
+    if [[ -f "${dir}/server_config.toml" ]] && ! $HAS_CONFIG_BACKUP \
+        && ask_yn "    Back up server_config.toml from ${dir}?"; then
+      do_backup_config "${dir}/server_config.toml"
     fi
 
-    # Remove binary (plain + versioned names), config and key
+    if [[ -f "${dir}/encrypt_key.txt" ]] && ! $HAS_KEY_BACKUP \
+        && ask_yn "    Back up encrypt_key.txt from ${dir}?"; then
+      do_backup_key "${dir}/encrypt_key.txt"
+    fi
+
     rm -f "${dir}"/MasterDnsVPN_Server_Linux_AMD64* 2>/dev/null || true
-    rm -f "${dir}/server_config.toml" "${dir}/encrypt_key.txt" 2>/dev/null || true
-    echo "[✓] Cleaned stray MasterDnsVPN files from ${dir}"
+    rm -f "${dir}/server_config.toml" "${dir}/encrypt_key.txt"  2>/dev/null || true
+    rm -f "${dir}/server_config.toml.backup" "${dir}/init_logs.tmp" 2>/dev/null || true
+    echo "[✓] Cleaned stray files from ${dir}"
   done
 }
 
-# ── Run cleanup before we touch anything ─────────────────────────────────────
+# ── Run stray cleanup ─────────────────────────────────────────────────────────
 if [[ "$DO_MASTER" == "y" ]]; then
   cleanup_stray_files
 fi
@@ -222,17 +236,15 @@ if [[ "$DO_MASTER" == "y" ]]; then
 
   stop_service "$MASTER_SERVICE"
 
-  # Ask about MASTER_DIR files (separate from the stray-file cleanup above)
-  if [[ -f "${MASTER_DIR}/server_config.toml" && "$KEEP_CONFIG" == "n" ]]; then
-    if ask_yn "    Keep existing server_config.toml from ${MASTER_DIR}?"; then
-      backup_file "${MASTER_DIR}/server_config.toml" "server_config"
-      KEEP_CONFIG="y"
+  # Ask about MASTER_DIR files — only if not already backed up from stray cleanup
+  if [[ -f "${MASTER_DIR}/server_config.toml" ]] && ! $HAS_CONFIG_BACKUP; then
+    if ask_yn "    Back up existing server_config.toml from ${MASTER_DIR}?"; then
+      do_backup_config "${MASTER_DIR}/server_config.toml"
     fi
   fi
-  if [[ -f "${MASTER_DIR}/encrypt_key.txt" && "$KEEP_KEY" == "n" ]]; then
-    if ask_yn "    Keep existing encrypt_key.txt from ${MASTER_DIR}?"; then
-      backup_file "${MASTER_DIR}/encrypt_key.txt" "encrypt_key"
-      KEEP_KEY="y"
+  if [[ -f "${MASTER_DIR}/encrypt_key.txt" ]] && ! $HAS_KEY_BACKUP; then
+    if ask_yn "    Back up existing encrypt_key.txt from ${MASTER_DIR}?"; then
+      do_backup_key "${MASTER_DIR}/encrypt_key.txt"
     fi
   fi
 
@@ -250,7 +262,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
   for svc in named bind9 dnsmasq; do
     stop_service "$svc"
   done
-  # Kill anything still holding port 53
   for pid in $(ss -H -lupn 'sport = :53' 2>/dev/null | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | sort -u); do
     kill -9 "$pid" 2>/dev/null || true
   done
@@ -266,9 +277,7 @@ if [[ "$DO_MASTER" == "y" ]]; then
   unzip -o server.zip
   rm -f server.zip
 
-  # Normalize binary name: official latest releases use versioned names like
-  # MasterDnsVPN_Server_Linux_AMD64_v2026.xx.xx...
-  # Make sure we have the plain name for our service ExecStart.
+  # Normalize binary name (latest releases ship as *_v2026.xx.xx...)
   if [[ ! -f "$EXECUTABLE" ]]; then
     FOUND=$(ls -t "${EXECUTABLE}"_v* 2>/dev/null | head -1)
     [[ -z "$FOUND" ]] && FOUND=$(find . -maxdepth 1 -name "MasterDnsVPN_Server_Linux_AMD64*" -type f | head -1)
@@ -276,38 +285,20 @@ if [[ "$DO_MASTER" == "y" ]]; then
   fi
   chmod +x "$EXECUTABLE"
 
-  # ── Restore or generate config ───────────────────────────────────────────────
-  if [[ "$KEEP_CONFIG" == "y" ]]; then
-    restore_latest_backup "/tmp/server_config_backup_*" server_config.toml \
-      || echo "[!] No config backup found — will use tuned default"
-  fi
-
-  # If still no config, copy our tuned template
-  if [[ ! -f server_config.toml ]]; then
-    TUNED="${PANEL_DIR}/${VERSION}_server_config.toml"
-    if [[ -f "$TUNED" ]]; then
-      cp "$TUNED" server_config.toml
-      echo "[*] Using tuned config for ${VERSION}"
-    else
-      echo "[!] Tuned config not found at ${TUNED} — binary will use defaults"
-    fi
-  fi
-  # Inject domain into config (safe no-op if placeholder not present)
-  sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
-
-  # ── Restore or generate encryption key ──────────────────────────────────────
-  if [[ "$KEEP_KEY" == "y" ]]; then
-    restore_latest_backup "/tmp/encrypt_key_backup_*" encrypt_key.txt \
-      || echo "[!] No key backup found — will generate a new key"
-  fi
-
-  if [[ ! -f encrypt_key.txt ]]; then
+  # ── KEY GENERATION — must happen BEFORE config restore ─────────────────────
+  # Reason: the April 5 binary creates a default server_config.toml when it
+  # starts. If we restore the config first, the binary overwrites it.
+  # By generating the key first, we can safely overwrite the default config
+  # with our backup in the next step.
+  if $HAS_KEY_BACKUP; then
+    cp "$KEY_BACKUP" encrypt_key.txt
+    echo "[*] Encryption key restored from backup"
+  else
     echo "[*] Generating encryption key..."
     if [[ "$VERSION" == "april12" ]]; then
-      # April 12+ supports -genkey flag for clean key generation
       ./"$EXECUTABLE" -genkey -nowait
     else
-      # April 5: run the binary, wait for key file to appear, then kill it
+      # April 5: run binary, wait for key file to appear, then kill it.
       ./"$EXECUTABLE" > /tmp/mdns_init.log 2>&1 &
       INIT_PID=$!
       for i in {1..10}; do
@@ -318,6 +309,27 @@ if [[ "$DO_MASTER" == "y" ]]; then
       wait "$INIT_PID" 2>/dev/null || true
       rm -f /tmp/mdns_init.log
       [[ ! -f encrypt_key.txt ]] && echo "[!] Key generation timed out — check port 53 is free"
+    fi
+  fi
+
+  # ── CONFIG RESTORE / INSTALL — after key gen ───────────────────────────────
+  if $HAS_CONFIG_BACKUP; then
+    # Restore user's config. It already has the real domain baked in,
+    # but the sed below is safe to run regardless (no-op if no placeholder).
+    cp "$CONFIG_BACKUP" server_config.toml
+    sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
+    echo "[*] server_config.toml restored from backup"
+  else
+    # Fresh install — copy our tuned template and inject the domain.
+    TUNED="${PANEL_DIR}/${VERSION}_server_config.toml"
+    if [[ -f "$TUNED" ]]; then
+      cp "$TUNED" server_config.toml
+      sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml
+      echo "[*] Using tuned config for ${VERSION} with domain ${USER_DOMAIN}"
+    else
+      echo "[!] Tuned config not found at ${TUNED} — binary default will be used"
+      # Binary already wrote a default config during key gen; patch domain in if present.
+      [[ -f server_config.toml ]] && sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
     fi
   fi
 
