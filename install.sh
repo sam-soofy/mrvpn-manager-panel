@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 PANEL_DIR="/opt/mrvpn-manager-panel"
-MASTER_DIR="/opt/masterdnsvpn"
+MASTER_DIR="/root"
 REPO_URL="https://github.com/sam-soofy/mrvpn-manager-panel.git"
 PANEL_SERVICE="mrvpn-manager-panel"
 MASTER_SERVICE="masterdnsvpn"
