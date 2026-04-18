@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 PANEL_DIR="/opt/mrvpn-manager-panel"
-MASTER_DIR="/root"                    # official path — changed here
+MASTER_DIR="/root"
 REPO_URL="https://github.com/sam-soofy/mrvpn-manager-panel.git"
 PANEL_SERVICE="mrvpn-manager-panel"
 MASTER_SERVICE="masterdnsvpn"
@@ -135,9 +135,6 @@ cleanup_stray_files() {
   SVC_DIR=$(get_service_workdir "$MASTER_SERVICE" || true)
   [[ -n "${SVC_DIR:-}" && "$SVC_DIR" != "$MASTER_DIR" ]] && CANDIDATES+=("$SVC_DIR")
 
-  # Do NOT add /root again — it is now the official MASTER_DIR
-  # Only clean stray locations that are NOT our target
-
   declare -A SEEN=()
   for dir in "${CANDIDATES[@]}"; do
     [[ "$dir" == "$MASTER_DIR" ]] && continue
@@ -253,7 +250,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
   mkdir -p "${MASTER_DIR}"
   cd "${MASTER_DIR}"
 
-  # (rest of MASTERDNSVPN block unchanged — port freeing, download, key gen, config restore, service file, etc.)
   # ── Free port 53 ────────────────────────────────────────────────────────────
   echo "[*] Freeing port 53..."
   systemctl stop systemd-resolved 2>/dev/null || true
@@ -279,12 +275,19 @@ if [[ "$DO_MASTER" == "y" ]]; then
   unzip -o server.zip
   rm -f server.zip
 
+  # Normalize binary name
   if [[ ! -f "$EXECUTABLE" ]]; then
     FOUND=$(ls -t "${EXECUTABLE}"_v* 2>/dev/null | head -1)
     [[ -z "$FOUND" ]] && FOUND=$(find . -maxdepth 1 -name "MasterDnsVPN_Server_Linux_AMD64*" -type f | head -1)
     [[ -n "$FOUND" ]] && cp "$FOUND" "$EXECUTABLE"
   fi
   chmod +x "$EXECUTABLE"
+
+  # ── NEW: Clean leftover versioned binaries (with _ suffix protection) ───────
+  echo "[*] Cleaning leftover versioned MasterDnsVPN binaries..."
+  rm -f MasterDnsVPN_Server_Linux_AMD64_* 2>/dev/null || true
+  # Extra safety: remove any that end with _ (in case of weird naming)
+  rm -f MasterDnsVPN_Server_Linux_AMD64_*_ 2>/dev/null || true
 
   # ── KEY GENERATION — must happen BEFORE config restore ─────────────────────
   if $HAS_KEY_BACKUP; then
