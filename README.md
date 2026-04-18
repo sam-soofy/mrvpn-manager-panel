@@ -1,225 +1,231 @@
-# MrVPN Manager Panel
+# MRVPN Manager Panel
 
-A lightweight web panel to manage and monitor servers running MasterDnsVPN.
+A lightweight web panel to install, manage, and monitor servers running [MasterDnsVPN](https://github.com/masterking32/MasterDnsVPN).
 
-## Features
-- JWT-based authentication (secure, stateless)
-- Install & manage specific MasterDnsVPN versions (April 5 / April 12)
-- Web-based config editor (`server_config.toml`, `encrypt_key.txt`)
-- Auto restart on config changes
-- Tuned configs with domain injection
-- Reinstall / version switching support
+---
 
+## What It Does
 
-## A brief Introduction:
+This panel sits on top of MasterDnsVPN and adds:
 
-I built a manager panel on top of MasterDnsVPN that adds:
+- **JWT-based authentication** — stateless, no sessions
+- **Version-aware installer** — choose between April 5 and April 12 builds
+- **Automatic domain injection** — tuned configs with your domain baked in
+- **Web dashboard** — real-time CPU, RAM, disk, and network stats via WebSocket
+- **One-command reinstall and version switching** — preserves your key and config if you want
+- **Systemd-managed** — panel and VPN both run as services, restart on crash and reboot
 
-- JWT auth (no sessions)
-- Version-aware install (April 5 / April 12)
-- Web-based config editing with safe restart
-- Tuned configs with automatic domain injection
-- Easy reinstall & version switching
-
-Basically makes running and maintaining MasterDnsVPN servers much easier and cleaner.
-
+---
 
 ## Installation
 
 ```bash
-rm install.sh
-
 curl -fsSL https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/install.sh -o install.sh
 sudo bash install.sh
 ```
 
+The installer will ask you:
+
+1. Whether to install/update the **Panel**
+2. Whether to install/update **MasterDnsVPN**
+   - Which version: April 5 or April 12
+   - Your domain (e.g. `vpn.example.com`)
+   - Whether to keep your existing `server_config.toml` and `encrypt_key.txt` if found
+
+---
+
 ## First Login
 
-After installation, the script prints credentials like this:
+After installation the credentials are printed:
 
-```text
-=== LOGIN ===
-User: admin
-Pass: xxxxxxxxxxxxxxxx
-============
+```
+========================================
+  Panel URL   : http://YOUR_SERVER_IP:5000
+  Panel Login :
+    User: admin
+    Pass: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+========================================
 ```
 
-Open the panel in your browser:
+The password is also saved at `/opt/mrvpn-manager-panel/admin_pass.txt`.
 
-```text
-http://YOUR_SERVER_IP:5000
-```
+---
 
 ## How It Works
 
-| Part | Role |
-|------|------|
-| `install.sh` | One-time setup and reinstall and version change manger |
-| `mrvpn_manager_panel.py` | Main web app |
-| `systemd service` | Keeps the app running after reboot |
-
-## Auto Start on Reboot
-
-The panel is started by a `systemd` service.  
-This means:
-
-- the installer does **not** run again after reboot
-- only the Python panel is started automatically
-- the service can also restart the app if it crashes
-
-### Service name
-
-```bash
-mrvpn-panel
 ```
+install.sh   →  sets up everything, handles reinstalls and version switching
+systemd      →  keeps panel and VPN alive across reboots and crashes
+web UI       →  monitor server health and control the VPN
+```
+
+| File | Role |
+|------|------|
+| `install.sh` | Installer, version manager, upgrade tool |
+| `mrvpn_manager_panel.py` | Main Flask + SocketIO web app |
+| `auth.py` | JWT token creation and verification |
+| `config_editor.py` | Read/write MasterDnsVPN config and key files |
+| `service_manager.py` | Restart MasterDnsVPN via systemd |
+| `april5_server_config.toml` | Tuned config for the April 5 build |
+| `april12_server_config.toml` | Tuned config for the April 12 build |
+
+---
+
+## Installer Smart Behaviours
+
+- **Detects existing installs** in both `/opt/masterdnsvpn` and the current working directory. This handles the common case where someone installed MasterDnsVPN manually before using this panel.
+- **Backs up your files** before wiping anything. For each of `server_config.toml` and `encrypt_key.txt`, it asks whether to keep or regenerate.
+- **Frees port 53** automatically by disabling the `systemd-resolved` stub listener if needed.
+- **Versioned systemd service** — `systemctl status masterdnsvpn` shows which build is running (e.g. `MasterDnsVPN Server (april12)`).
+- **Reinstall / version swap** — re-run `install.sh` at any time to switch versions or reset the installation.
+
+---
 
 ## Service Management
 
-### Check status
+### Panel service
 
 ```bash
-systemctl status mrvpn-panel
+# Status
+systemctl status mrvpn-manager-panel
+
+# Logs (live)
+journalctl -u mrvpn-manager-panel -f
+
+# Start / Stop / Restart
+systemctl start   mrvpn-manager-panel
+systemctl stop    mrvpn-manager-panel
+systemctl restart mrvpn-manager-panel
+
+# Enable / Disable on boot
+systemctl enable  mrvpn-manager-panel
+systemctl disable mrvpn-manager-panel
 ```
 
-### Start
+### MasterDnsVPN service
 
 ```bash
-systemctl start mrvpn-panel
+# Status (also shows which version is installed)
+systemctl status masterdnsvpn
+
+# Logs (live)
+journalctl -u masterdnsvpn -f
+
+# Start / Stop / Restart
+systemctl start   masterdnsvpn
+systemctl stop    masterdnsvpn
+systemctl restart masterdnsvpn
 ```
 
-### Stop
-
-```bash
-systemctl stop mrvpn-panel
-```
-
-### Restart
-
-```bash
-systemctl restart mrvpn-panel
-```
-
-### Enable on boot
-
-```bash
-systemctl enable mrvpn-panel
-```
-
-### Disable on boot
-
-```bash
-systemctl disable mrvpn-panel
-```
-
-## Debugging
-
-### View live logs
-
-```bash
-journalctl -u mrvpn-panel -f
-```
-
-This is the most useful command for debugging startup problems, crashes, and Python errors.
-
-### Common issues
-
-#### Port already in use
-
-If you see an error like:
-
-```text
-Address already in use
-```
-
-Check which process is using the port:
-
-```bash
-lsof -i :5000
-```
-
-#### Permission problems
-
-The panel needs root privileges because it controls the VPN service.
-
-Run it with:
-
-```bash
-sudo systemctl restart mrvpn-panel
-```
-
-#### Service not starting after reboot
-
-Check whether it is enabled:
-
-```bash
-systemctl is-enabled mrvpn-panel
-```
-
-If needed, enable it again:
-
-```bash
-systemctl enable mrvpn-panel
-```
-
-#### Missing Python packages
-
-Install dependencies with:
-
-```bash
-pip install -r requirements.txt
-```
+---
 
 ## API
 
-The app still supports JSON API usage.
+The panel exposes a small JSON API.
 
-### Login
+### Auth
 
-```bash
-POST /login
+```
+POST /api/auth/login
+Body: { "username": "admin", "password": "..." }
+Returns: { "ok": true, "access_token": "...", "refresh_token": "..." }
+
+POST /api/auth/refresh
+Body: { "refresh_token": "..." }
+Returns: { "ok": true, "access_token": "...", "refresh_token": "..." }
 ```
 
-Example JSON:
+### VPN Control
 
-```json
-{
-  "username": "admin",
-  "password": "your_password"
-}
+```
+POST /api/restart          — restart MasterDnsVPN service
+GET  /api/status           — current health snapshot (CPU, RAM, disk, network)
 ```
 
-### Restart VPN
+### Config (implemented, UI coming)
 
-```bash
-POST /api/restart
+```
+GET  /api/config/server    — read server_config.toml
+POST /api/config/server    — write server_config.toml and restart VPN
+GET  /api/config/key       — read encrypt_key.txt
+POST /api/config/key       — write encrypt_key.txt and restart VPN
 ```
 
-### Status
+All `/api/config` writes require `"confirmed": true` in the request body. A first call without it returns a confirmation prompt message.
 
-```bash
-GET /api/status
-```
+---
 
 ## UI Pages
 
-- `/` → Dashboard
-- `/login` → Login page
-- `/api/status` → Current health snapshot
-- `/api/restart` → Restart VPN service
+| Route | Description |
+|-------|-------------|
+| `/` | Dashboard — real-time stats, restart button |
+| `/login` | Login page |
+| `/api/status` | Raw health JSON |
 
-## Notes
+---
 
-- Designed for Ubuntu / Debian-based systems
-- Requires `root`
-- Uses:
-  - Flask
-  - Flask-SocketIO
-  - psutil
+## Roadmap
 
-## Mental Model
+These features are planned and will be added in upcoming releases:
 
-```text
-install.sh  -> setup
-systemd     -> keep it alive
-web UI      -> monitor + control
+- **Browser-based config and key editor** — view and edit `server_config.toml` and `encrypt_key.txt` directly from the dashboard, with automatic service restart on save. The API endpoints are already implemented; the UI editor is coming.
+
+- **Scheduled config switching** — define multiple server configs for different times of day (e.g. aggressive ARQ settings at night, conservative ones during the day) and have a system service auto-swap them on a schedule.
+
+---
+
+## Debugging
+
+### Common issues
+
+**Port already in use**
+
+```bash
+ss -ulnp | grep :53
+```
+
+The installer handles this automatically by disabling the `systemd-resolved` stub listener. If it persists, check for other DNS daemons (`named`, `dnsmasq`).
+
+**Panel not starting**
+
+```bash
+journalctl -u mrvpn-manager-panel -n 50 --no-pager
+```
+
+**VPN not starting after reboot**
+
+```bash
+systemctl is-enabled masterdnsvpn
+# If not enabled:
+systemctl enable masterdnsvpn
+```
+
+**Missing Python packages**
+
+```bash
+cd /opt/mrvpn-manager-panel
+.venv/bin/pip install -r requirements.txt
+```
+
+---
+
+## Requirements
+
+- Ubuntu / Debian-based Linux
+- Root access
+- Python 3.8+
+- Port 5000 open (panel)
+- Port 53 (UDP) open (MasterDnsVPN)
+
+---
+
+## Dependencies
+
+```
+flask
+flask-socketio
+psutil
+werkzeug
+PyJWT
 ```
