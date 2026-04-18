@@ -285,7 +285,6 @@ ExecStart=${PANEL_DIR}/.venv/bin/python ${PANEL_DIR}/mrvpn_manager_panel.py
 Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
-Environment=ADMIN_PASSWORD=${ADMIN_PASS}
 
 [Install]
 WantedBy=multi-user.target
@@ -294,6 +293,32 @@ UNIT
   systemctl daemon-reload
   systemctl enable --now "${PANEL_SERVICE}"
   echo "[✓] Panel installed at ${PANEL_DIR}"
+
+  # ── Scheduler service ──────────────────────────────────────────────────────
+  SCHEDULER_SERVICE="mrvpn-config-scheduler"
+
+  cat > "/etc/systemd/system/${SCHEDULER_SERVICE}.service" <<UNIT
+[Unit]
+Description=MRVPN Config Scheduler
+After=network-online.target mrvpn-manager-panel.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${PANEL_DIR}
+ExecStart=${PANEL_DIR}/.venv/bin/python ${PANEL_DIR}/scheduler.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+  systemctl daemon-reload
+  systemctl enable --now "${SCHEDULER_SERVICE}"
+  echo "[✓] Config scheduler service enabled and started"
 fi
 
 # =============================================================================
@@ -410,15 +435,30 @@ echo "========================================"
 
 if [[ "$DO_PANEL" == "y" ]]; then
   echo ""
-  echo "  Panel URL   : http://YOUR_SERVER_IP:5000"
-  echo "  Panel Login :"
-  echo "    User: admin"
-  echo "    Pass: ${ADMIN_PASS:-<see ${PANEL_DIR}/admin_pass.txt>}"
+  echo "╔══════════════════════════════════════════════════════╗"
+  echo "║              ★  SAVE YOUR LOGIN CREDENTIALS  ★      ║"
+  echo "╠══════════════════════════════════════════════════════╣"
+  echo "║                                                      ║"
+  printf  "║  URL  : http://%-36s║\n" "YOUR_SERVER_IP:5000"
+  printf  "║  User : %-43s║\n" "admin"
+  printf  "║  Pass : %-43s║\n" "${ADMIN_PASS}"
+  echo "║                                                      ║"
+  echo "╠══════════════════════════════════════════════════════╣"
+  echo "║  Password file : ${PANEL_DIR}/admin_pass.txt"
+  echo "║                                                      ║"
+  echo "║  TO RESET PASSWORD:                                  ║"
+  echo "║    nano ${PANEL_DIR}/admin_pass.txt"
+  echo "║    systemctl restart ${PANEL_SERVICE}"
+  echo "╚══════════════════════════════════════════════════════╝"
   echo ""
   echo "  Panel service commands:"
   echo "    systemctl status  ${PANEL_SERVICE}"
   echo "    systemctl restart ${PANEL_SERVICE}"
   echo "    journalctl -u ${PANEL_SERVICE} -f"
+  echo ""
+  echo "  Scheduler service commands:"
+  echo "    systemctl status  mrvpn-config-scheduler"
+  echo "    journalctl -u mrvpn-config-scheduler -f"
 fi
 
 if [[ "$DO_MASTER" == "y" ]]; then
