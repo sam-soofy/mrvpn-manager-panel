@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# MRVPN Manager Panel + MasterDnsVPN Installer (FULL REWRITE — v2)
-# Fixed: CWD stray installs • systemd service cleanup • separate keep prompts
-# Port 53 aggressive cleanup (inspired by official server_linux_install.sh)
-# Supports: Panel + April5 / April12
+# MRVPN Manager Panel + MasterDnsVPN Installer (v3)
+# Fixed: CWD versioned binary cleanup + Version shown in systemctl status
 # =============================================================================
 set -euo pipefail
 IFS=$'\n\t'
@@ -58,16 +56,15 @@ stop_service() {
 
 looks_like_master() {
   local dir="$1"
-  [[ -d "$dir" ]] && [[ -f "${dir}/${EXECUTABLE}" || -f "${dir}/server_config.toml" || -f "${dir}/encrypt_key.txt" ]]
+  [[ -d "$dir" ]] && [[ -f "${dir}/${EXECUTABLE}" || -f "${dir}/server_config.toml" || -f "${dir}/encrypt_key.txt" || -f "${dir}"/MasterDnsVPN_Server_Linux_AMD64* ]]
 }
 
-# ── CWD stray cleanup (official installer installs in pwd) ───────────────────
+# ── CWD stray cleanup (official installer leftovers) ────────────────────────
 if [[ "$DO_MASTER" == "y" ]]; then
   CWD="$(pwd)"
   if [[ "$CWD" != "$MASTER_DIR" ]] && looks_like_master "$CWD"; then
     echo ""
     echo "[!] Found stray MasterDnsVPN files in current directory: ${CWD}"
-    echo "    (common when official install.sh was used before)"
     if ask_yn "    Backup server_config.toml?"; then
       cp "${CWD}/server_config.toml" "/tmp/server_config_backup_$(date +%s).toml" 2>/dev/null || true
       KEEP_CONFIG="y"
@@ -76,8 +73,9 @@ if [[ "$DO_MASTER" == "y" ]]; then
       cp "${CWD}/encrypt_key.txt" "/tmp/encrypt_key_backup_$(date +%s).txt" 2>/dev/null || true
       KEEP_KEY="y"
     fi
-    rm -f "${CWD}/${EXECUTABLE}" "${CWD}/server_config.toml" "${CWD}/encrypt_key.txt" 2>/dev/null || true
-    echo "[✓] Cleaned stray files from ${CWD}"
+    # Remove binary (plain + versioned), config, key
+    rm -f "${CWD}/${EXECUTABLE}" "${CWD}"/MasterDnsVPN_Server_Linux_AMD64* "${CWD}/server_config.toml" "${CWD}/encrypt_key.txt" 2>/dev/null || true
+    echo "[✓] Cleaned all stray files from ${CWD}"
   fi
 fi
 
@@ -98,14 +96,10 @@ if [[ "$DO_PANEL" == "y" ]]; then
   .venv/bin/pip install --upgrade pip --quiet
   .venv/bin/pip install -r requirements.txt --quiet
 
-  # JWT secret
   [[ ! -f jwt_secret.txt ]] && openssl rand -hex 32 > jwt_secret.txt && chmod 600 jwt_secret.txt
-
-  # Admin pass
   ADMIN_PASS_FILE="admin_pass.txt"
   [[ ! -f "$ADMIN_PASS_FILE" ]] && openssl rand -hex 16 > "$ADMIN_PASS_FILE" && chmod 600 "$ADMIN_PASS_FILE"
 
-  # Services
   cat > "/etc/systemd/system/${PANEL_SERVICE}.service" <<UNIT
 [Unit]
 Description=MRVPN Manager Panel
@@ -150,10 +144,9 @@ if [[ "$DO_MASTER" == "y" ]]; then
   echo ""
   echo "[*] ── MasterDnsVPN (${VERSION}) ────────────"
 
-  # Stop any existing service (our or official)
   stop_service "$MASTER_SERVICE"
 
-  # Backup if exists in /opt
+  # Backup prompts for /opt
   if [[ -f "${MASTER_DIR}/server_config.toml" ]] && ask_yn "    Keep existing server_config.toml?"; then
     cp "${MASTER_DIR}/server_config.toml" "/tmp/server_config_backup_$(date +%s).toml"
     KEEP_CONFIG="y"
@@ -163,12 +156,10 @@ if [[ "$DO_MASTER" == "y" ]]; then
     KEEP_KEY="y"
   fi
 
-  # Clean target
   rm -rf "${MASTER_DIR}"
   mkdir -p "${MASTER_DIR}"
   cd "${MASTER_DIR}"
 
-  # Aggressive port 53 cleanup (from official installer logic)
   echo "[*] Freeing port 53..."
   systemctl stop systemd-resolved 2>/dev/null || true
   sed -i '/DNSStubListener/d' /etc/systemd/resolved.conf 2>/dev/null || true
@@ -178,13 +169,10 @@ if [[ "$DO_MASTER" == "y" ]]; then
   for svc in named bind9 dnsmasq masterdnsvpn; do
     stop_service "$svc"
   done
-
-  # Kill any lingering processes on 53
   for pid in $(ss -H -lupn 'sport = :53' 2>/dev/null | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | sort -u); do
     kill -9 "$pid" 2>/dev/null || true
   done
 
-  # Download
   if [[ "$VERSION" == "april5" ]]; then
     URL="https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05.191930-7757d2d/MasterDnsVPN_Server_Linux_AMD64.zip"
   else
@@ -195,24 +183,21 @@ if [[ "$DO_MASTER" == "y" ]]; then
   unzip -o server.zip
   rm -f server.zip
 
-  # Handle versioned binary
   if [[ ! -f "$EXECUTABLE" ]]; then
     FOUND=$(find . -name "MasterDnsVPN_Server_Linux_AMD64*" -type f | head -1)
     [[ -n "$FOUND" ]] && mv "$FOUND" "$EXECUTABLE"
   fi
   chmod +x "$EXECUTABLE"
 
-  # Config
-  if [[ "$KEEP_CONFIG" == "y" && -f "/tmp/server_config_backup_"* ]]; then
+  if [[ "$KEEP_CONFIG" == "y" && -f /tmp/server_config_backup_* ]]; then
     cp /tmp/server_config_backup_* server_config.toml 2>/dev/null || true
   else
     TUNED="${PANEL_DIR}/config/tuned/${VERSION}_server_config.toml"
-    [[ -f "$TUNED" ]] && cp "$TUNED" server_config.toml || echo "[!] No tuned config — using default"
+    [[ -f "$TUNED" ]] && cp "$TUNED" server_config.toml
   fi
   sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
 
-  # Key
-  if [[ "$KEEP_KEY" == "y" && -f "/tmp/encrypt_key_backup_"* ]]; then
+  if [[ "$KEEP_KEY" == "y" && -f /tmp/encrypt_key_backup_* ]]; then
     cp /tmp/encrypt_key_backup_* encrypt_key.txt
   else
     echo "[*] Generating key..."
@@ -226,7 +211,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
   chmod 600 server_config.toml encrypt_key.txt 2>/dev/null || true
   chown -R root:root "${MASTER_DIR}"
 
-  # Service
   cat > "/etc/systemd/system/${MASTER_SERVICE}.service" <<UNIT
 [Unit]
 Description=MasterDnsVPN Server (${VERSION})
@@ -246,7 +230,7 @@ UNIT
 
   systemctl daemon-reload
   systemctl enable --now "${MASTER_SERVICE}"
-  echo "[✓] MasterDnsVPN installed and started"
+  echo "[✓] MasterDnsVPN (${VERSION}) installed and started"
 fi
 
 echo ""
@@ -259,6 +243,7 @@ if [[ "$DO_PANEL" == "y" ]]; then
 fi
 if [[ "$DO_MASTER" == "y" ]]; then
   echo "VPN dir → ${MASTER_DIR}"
+  echo "Version → ${VERSION}"
   echo "Domain  → ${USER_DOMAIN}"
 fi
 echo "========================================"
