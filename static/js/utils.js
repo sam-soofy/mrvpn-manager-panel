@@ -2,17 +2,44 @@
 //  utils.js — shared helpers, loaded first
 // ═══════════════════════════════════════════════════
 
-// ── Auth guard ───────────────────────────────────────
+// ── Sync token guard ─────────────────────────────────
+// If there's no token at all, redirect immediately before any other
+// script even runs. This is synchronous so the redirect fires before
+// the socket or any apiFetch call is attempted.
 const token = localStorage.getItem("access_token");
-if (!token) window.location.href = "/login";
+if (!token) {
+  window.location.replace("/login");
+}
+
+// ── Async auth verify ────────────────────────────────
+// Called by main.js on page load. Verifies the stored token is still
+// valid server-side. On failure: clears storage, redirects immediately.
+// On success: reveals the dashboard and kicks off init.
+async function verifyAuth() {
+  try {
+    const res = await fetch("/api/auth/verify", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("invalid");
+    return true;
+  } catch (_) {
+    localStorage.clear();
+    window.location.replace("/login");
+    return false;
+  }
+}
 
 // ── Authenticated fetch ───────────────────────────────
 async function apiFetch(url, options = {}) {
   options.headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
   const res = await fetch(url, options);
   if (res.status === 401) {
-    showToast("Session expired — please log in again", "error");
-    setTimeout(() => { localStorage.clear(); window.location.href = "/login"; }, 1500);
+    // Token expired mid-session — clear and redirect without delay
+    showToast("Session expired — logging out", "error");
+    setTimeout(() => {
+      localStorage.clear();
+      window.location.replace("/login");
+    }, 600);
     throw new Error("unauthorized");
   }
   return res;
@@ -21,7 +48,7 @@ async function apiFetch(url, options = {}) {
 // ── Logout ────────────────────────────────────────────
 function logout() {
   localStorage.clear();
-  window.location.href = "/login";
+  window.location.replace("/login");
 }
 
 // ── Toast ─────────────────────────────────────────────

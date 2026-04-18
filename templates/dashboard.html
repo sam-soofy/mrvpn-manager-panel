@@ -7,10 +7,33 @@
   <link rel="stylesheet" href="/static/css/dashboard.css">
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Auth loading screen — shown until verifyAuth() succeeds */
+    #auth-loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 14px;
+      z-index: 999;
+    }
+
+    /* Header and main are hidden until JS reveals them after auth */
+    #page-header,
+    #page-main {
+      display: none;
+    }
+  </style>
 </head>
 <body>
 
-<header>
+<!-- Shown while verifyAuth() runs; hidden on success, page stays on /login on failure -->
+<div id="auth-loading">Authenticating…</div>
+
+<header id="page-header">
   <h1>⚡ MRVPN Dashboard</h1>
   <div class="right">
     <span id="hdr-status" style="color:var(--muted);font-size:12px;">Connecting…</span>
@@ -18,7 +41,7 @@
   </div>
 </header>
 
-<main>
+<main id="page-main">
 
   <!-- Stats -->
   <div class="card">

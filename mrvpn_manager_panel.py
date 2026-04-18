@@ -9,8 +9,9 @@ import os
 from pathlib import Path
 
 from flask import Flask
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, disconnect
 
+from modules.auth import verify_token
 from modules.monitor import start_monitor
 from modules.routes import register_blueprints
 
@@ -32,6 +33,20 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 register_blueprints(app)
+
+# ── Socket auth ───────────────────────────────────────────────────────────────
+@socketio.on("connect")
+def handle_connect(auth):
+    """Reject socket connections that don't carry a valid access token.
+
+    The client sends: io({ auth: { token: "<JWT>" } })
+    Flask-SocketIO passes the auth dict here as the first argument.
+    Returning False rejects the connection with a 403-equivalent.
+    """
+    token = (auth or {}).get("token", "")
+    if not verify_token(token, "access"):
+        return False  # rejects the socket connection
+
 
 # ── Background monitor ────────────────────────────────────────────────────────
 start_monitor(socketio, refresh_interval=config.get("monitoring_refresh", DEFAULT_MONITOR_REFRESH))

@@ -1,23 +1,30 @@
 // ═══════════════════════════════════════════════════
 //  realtime.js — socket.io + live chart
-//  Depends on: utils.js (showToast, setHdrStatus via socket events)
+//  Depends on: utils.js (token, showToast)
+//  Socket is NOT auto-connected. main.js calls initSocket() after
+//  verifyAuth() succeeds, so no unauthenticated socket connections occur.
 // ═══════════════════════════════════════════════════
 
-// ── Socket ──────────────────────────────────────────
-const socket = io();
+let socket;
 
-socket.on("connect",    () => setHdrStatus("Live", "var(--green)"));
-socket.on("disconnect", () => setHdrStatus("Disconnected", "var(--red)"));
+// Called by main.js after auth is confirmed.
+function initSocket() {
+  // Pass JWT in the handshake so the server can reject unauthenticated sockets.
+  socket = io({ auth: { token } });
 
-socket.on("update", (data) => {
-  setValue("s-cpu",  data.health.cpu.toFixed(1));
-  setValue("s-ram",  data.health.ram.toFixed(1));
-  setValue("s-disk", data.health.disk.toFixed(1));
-  setValue("s-rx",   data.speed.rx.toFixed(2));
-  setValue("s-tx",   data.speed.tx.toFixed(2));
-  pushChartPoint(data.health.cpu, data.health.ram);
-  setHdrStatus("Live", "var(--green)");
-});
+  socket.on("connect",    () => setHdrStatus("Live", "var(--green)"));
+  socket.on("disconnect", () => setHdrStatus("Disconnected", "var(--red)"));
+
+  socket.on("update", (data) => {
+    setValue("s-cpu",  data.health.cpu.toFixed(1));
+    setValue("s-ram",  data.health.ram.toFixed(1));
+    setValue("s-disk", data.health.disk.toFixed(1));
+    setValue("s-rx",   data.speed.rx.toFixed(2));
+    setValue("s-tx",   data.speed.tx.toFixed(2));
+    pushChartPoint(data.health.cpu, data.health.ram);
+    setHdrStatus("Live", "var(--green)");
+  });
+}
 
 // ── Header status indicator ───────────────────────────
 function setHdrStatus(text, color) {
@@ -27,10 +34,9 @@ function setHdrStatus(text, color) {
 }
 
 // ── Stat card value updater ───────────────────────────
-// Each stat element has a text node first, then a <span class="stat-unit"> child.
 function setValue(id, val) {
   const el = document.getElementById(id);
-  if (el.firstChild.nodeType === Node.TEXT_NODE) {
+  if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
     el.firstChild.textContent = val;
   }
 }

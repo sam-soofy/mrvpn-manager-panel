@@ -7,6 +7,13 @@ from modules.service_manager import restart_masterdnsvpn
 service_bp = Blueprint("service", __name__)
 
 
+@service_bp.route("/api/auth/verify", methods=["GET"])
+@require_auth
+def api_verify():
+    """Lightweight token-check endpoint used by the dashboard on page load."""
+    return jsonify({"ok": True})
+
+
 @service_bp.route("/api/restart", methods=["POST"])
 @require_auth
 def api_restart():
