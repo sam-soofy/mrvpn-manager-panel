@@ -6,7 +6,7 @@
 set -euo pipefail
 
 PANEL_DIR="/opt/mrvpn-manager-panel"
-MASTER_DIR="/opt/masterdnsvpn"
+MASTER_DIR="/root"          # official path
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "[!] Run as root: sudo bash uninstall.sh"
@@ -21,7 +21,7 @@ echo "This will permanently remove:"
 echo "  ▸ mrvpn-manager-panel service + ${PANEL_DIR}"
 echo "  ▸ mrvpn-config-scheduler service"
 echo "  ▸ masterdnsvpn service + ${MASTER_DIR}"
-echo "  ▸ MasterDnsVPN files found in common locations (/root, cwd)"
+echo "  ▸ Stray MasterDnsVPN files in common locations"
 echo "  ▸ All temp backups created by the installer (/tmp)"
 echo ""
 read -r -p "Type 'yes' to confirm full uninstall: " CONFIRM
@@ -78,7 +78,7 @@ else
   echo "[~] ${PANEL_DIR} not found — skipping"
 fi
 
-# ── Remove our masterdnsvpn directory ─────────────────────────────────────────
+# ── Remove official masterdnsvpn directory ────────────────────────────────────
 if [[ -d "$MASTER_DIR" ]]; then
   rm -rf "$MASTER_DIR"
   echo "[✓] Removed ${MASTER_DIR}"
@@ -109,15 +109,13 @@ check_and_clean_dir() {
 }
 
 check_and_clean_dir "$(pwd)"
-check_and_clean_dir "/root"
-[[ -n "${MASTER_SVC_DIR:-}" ]] && check_and_clean_dir "$MASTER_SVC_DIR"
+[[ -n "${MASTER_SVC_DIR:-}" && "$MASTER_SVC_DIR" != "$MASTER_DIR" ]] && check_and_clean_dir "$MASTER_SVC_DIR"
 
 # ── Remove temp backups ────────────────────────────────────────────────────────
 echo ""
 echo "[*] Removing installer temp backups from /tmp..."
 rm -f /tmp/mrvpn_server_config_*.toml  2>/dev/null || true
 rm -f /tmp/mrvpn_encrypt_key_*.txt     2>/dev/null || true
-# Legacy patterns from older installer versions
 rm -f /tmp/server_config_backup_*      2>/dev/null || true
 rm -f /tmp/encrypt_key_backup_*        2>/dev/null || true
 echo "[✓] Temp backups cleaned"

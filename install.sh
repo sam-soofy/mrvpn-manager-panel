@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 PANEL_DIR="/opt/mrvpn-manager-panel"
-MASTER_DIR="/root"
+MASTER_DIR="/root"                    # official path — changed here
 REPO_URL="https://github.com/sam-soofy/mrvpn-manager-panel.git"
 PANEL_SERVICE="mrvpn-manager-panel"
 MASTER_SERVICE="masterdnsvpn"
@@ -24,7 +24,6 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 # ── Per-run backup paths ───────────────────────────────────────────────────────
-# Fixed paths keyed by PID+timestamp — no glob ambiguity, no stale collisions.
 RUN_ID="$$_$(date +%s)"
 CONFIG_BACKUP="/tmp/mrvpn_server_config_${RUN_ID}.toml"
 KEY_BACKUP="/tmp/mrvpn_encrypt_key_${RUN_ID}.txt"
@@ -124,7 +123,7 @@ do_backup_key() {
   echo "[*] Key backed up to ${KEY_BACKUP}"
 }
 
-# ── Stray-file cleanup ────────────────────────────────────────────────────────
+# ── Stray-file cleanup (adapted for new MASTER_DIR=/root) ─────────────────────
 
 cleanup_stray_files() {
   local CWD
@@ -135,7 +134,9 @@ cleanup_stray_files() {
   local SVC_DIR
   SVC_DIR=$(get_service_workdir "$MASTER_SERVICE" || true)
   [[ -n "${SVC_DIR:-}" && "$SVC_DIR" != "$MASTER_DIR" ]] && CANDIDATES+=("$SVC_DIR")
-  [[ "/root" != "$CWD" && "/root" != "$MASTER_DIR" ]]    && CANDIDATES+=("/root")
+
+  # Do NOT add /root again — it is now the official MASTER_DIR
+  # Only clean stray locations that are NOT our target
 
   declare -A SEEN=()
   for dir in "${CANDIDATES[@]}"; do
@@ -252,6 +253,7 @@ if [[ "$DO_MASTER" == "y" ]]; then
   mkdir -p "${MASTER_DIR}"
   cd "${MASTER_DIR}"
 
+  # (rest of MASTERDNSVPN block unchanged — port freeing, download, key gen, config restore, service file, etc.)
   # ── Free port 53 ────────────────────────────────────────────────────────────
   echo "[*] Freeing port 53..."
   systemctl stop systemd-resolved 2>/dev/null || true
@@ -277,7 +279,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
   unzip -o server.zip
   rm -f server.zip
 
-  # Normalize binary name (latest releases ship as *_v2026.xx.xx...)
   if [[ ! -f "$EXECUTABLE" ]]; then
     FOUND=$(ls -t "${EXECUTABLE}"_v* 2>/dev/null | head -1)
     [[ -z "$FOUND" ]] && FOUND=$(find . -maxdepth 1 -name "MasterDnsVPN_Server_Linux_AMD64*" -type f | head -1)
@@ -286,10 +287,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
   chmod +x "$EXECUTABLE"
 
   # ── KEY GENERATION — must happen BEFORE config restore ─────────────────────
-  # Reason: the April 5 binary creates a default server_config.toml when it
-  # starts. If we restore the config first, the binary overwrites it.
-  # By generating the key first, we can safely overwrite the default config
-  # with our backup in the next step.
   if $HAS_KEY_BACKUP; then
     cp "$KEY_BACKUP" encrypt_key.txt
     echo "[*] Encryption key restored from backup"
@@ -298,7 +295,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
     if [[ "$VERSION" == "april12" ]]; then
       ./"$EXECUTABLE" -genkey -nowait
     else
-      # April 5: run binary, wait for key file to appear, then kill it.
       ./"$EXECUTABLE" > /tmp/mdns_init.log 2>&1 &
       INIT_PID=$!
       for i in {1..10}; do
@@ -314,13 +310,10 @@ if [[ "$DO_MASTER" == "y" ]]; then
 
   # ── CONFIG RESTORE / INSTALL — after key gen ───────────────────────────────
   if $HAS_CONFIG_BACKUP; then
-    # Restore user's config. It already has the real domain baked in,
-    # but the sed below is safe to run regardless (no-op if no placeholder).
     cp "$CONFIG_BACKUP" server_config.toml
     sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
     echo "[*] server_config.toml restored from backup"
   else
-    # Fresh install — copy our tuned template and inject the domain.
     TUNED="${PANEL_DIR}/${VERSION}_server_config.toml"
     if [[ -f "$TUNED" ]]; then
       cp "$TUNED" server_config.toml
@@ -328,7 +321,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
       echo "[*] Using tuned config for ${VERSION} with domain ${USER_DOMAIN}"
     else
       echo "[!] Tuned config not found at ${TUNED} — binary default will be used"
-      # Binary already wrote a default config during key gen; patch domain in if present.
       [[ -f server_config.toml ]] && sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
     fi
   fi
