@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# MRVPN Manager Panel + MasterDnsVPN Installer (fixed)
+# MRVPN Manager Panel + MasterDnsVPN Installer (fixed + JWT secret)
 # Supports: Panel + April5 / April12 builds
-# Fixed: versioned binary name in April 5 ZIP (MasterDnsVPN_Server_Linux_AMD64_v...)
 # =============================================================================
 set -euo pipefail
 IFS=$'\n\t'
@@ -80,6 +79,14 @@ if [[ "$DO_PANEL" == "y" ]]; then
   .venv/bin/pip install --upgrade pip --quiet
   .venv/bin/pip install -r requirements.txt --quiet
 
+  # JWT secret (secure random)
+  JWT_SECRET_FILE="${PANEL_DIR}/jwt_secret.txt"
+  if [[ ! -f "$JWT_SECRET_FILE" ]]; then
+    openssl rand -hex 32 > "$JWT_SECRET_FILE"
+    chmod 600 "$JWT_SECRET_FILE"
+    echo "[✓] New JWT secret generated"
+  fi
+
   ADMIN_PASS_FILE="${PANEL_DIR}/admin_pass.txt"
   if [[ ! -f "$ADMIN_PASS_FILE" ]]; then
     ADMIN_PASS=$(openssl rand -hex 16)
@@ -134,16 +141,11 @@ UNIT
 fi
 
 # =============================================================================
-# MASTERDNSVPN (fixed binary handling)
+# MASTERDNSVPN
 # =============================================================================
 if [[ "$DO_MASTER" == "y" ]]; then
   echo ""
   echo "[*] ── MasterDnsVPN (${VERSION}) ────────────"
-
-  if looks_like_master "$MASTER_DIR"; then
-    echo "[!] Existing install found"
-    # backup logic unchanged (kept minimal)
-  fi
 
   stop_service "$MASTER_SERVICE"
   rm -f "/etc/systemd/system/${MASTER_SERVICE}.service"
@@ -151,7 +153,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
   mkdir -p "${MASTER_DIR}"
   cd "${MASTER_DIR}"
 
-  # Port 53 fix (unchanged)
   if ss -ulnp 2>/dev/null | grep -q ':53 '; then
     echo "[*] Freeing port 53..."
     sed -i '/DNSStubListener/d' /etc/systemd/resolved.conf 2>/dev/null || true
@@ -159,7 +160,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
     systemctl restart systemd-resolved 2>/dev/null || true
   fi
 
-  # Download
   if [[ "$VERSION" == "april5" ]]; then
     URL="https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05.191930-7757d2d/MasterDnsVPN_Server_Linux_AMD64.zip"
   else
@@ -172,22 +172,17 @@ if [[ "$DO_MASTER" == "y" ]]; then
   unzip -o "server.zip" -d "${MASTER_DIR}"
   rm -f "server.zip"
 
-  # FIXED: handle official versioned binary name (_v...)
-  echo "[*] Setting up binary..."
   VERSIONED_BIN=$(ls -t MasterDnsVPN_Server_Linux_AMD64_v* 2>/dev/null | head -n1 || echo "")
   if [[ -n "$VERSIONED_BIN" ]]; then
     mv "$VERSIONED_BIN" "${EXECUTABLE}"
-    echo "[✓] Renamed versioned binary → ${EXECUTABLE}"
+    echo "[✓] Renamed versioned binary"
   elif [[ -f "MasterDnsVPN_Server_Linux_AMD64" ]]; then
     echo "[✓] Standard binary found"
   else
-    echo "[!] Binary not found after extraction"
-    ls -la
-    exit 1
+    echo "[!] Binary not found"; exit 1
   fi
   chmod +x "${EXECUTABLE}"
 
-  # Config (tuned + domain injection)
   TUNED_CFG="${PANEL_DIR}/config/tuned/${VERSION}_server_config.toml"
   if [[ -f "$TUNED_CFG" ]]; then
     cp "$TUNED_CFG" server_config.toml
@@ -199,7 +194,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
   sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
   echo "[✓] server_config.toml ready"
 
-  # Key
   ./$EXECUTABLE -genkey -nowait 2>/dev/null || ./"$EXECUTABLE" & sleep 3; kill $! 2>/dev/null || true
   [[ -f "encrypt_key.txt" ]] || { echo "[!] Key generation failed"; exit 1; }
   echo "[✓] encrypt_key.txt generated"
@@ -207,7 +201,6 @@ if [[ "$DO_MASTER" == "y" ]]; then
   chmod 600 server_config.toml encrypt_key.txt 2>/dev/null || true
   chown -R root:root "${MASTER_DIR}"
 
-  # Service
   cat > "/etc/systemd/system/${MASTER_SERVICE}.service" <<UNIT
 [Unit]
 Description=MasterDnsVPN Server (${VERSION})
@@ -238,4 +231,5 @@ echo "========================================"
 if [[ "$DO_PANEL" == "y" ]]; then
   echo "Panel URL : http://YOUR_IP:5000"
   echo "Login     : admin / $(cat "${PANEL_DIR}/admin_pass.txt")"
+  echo "JWT secret: ${PANEL_DIR}/jwt_secret.txt (auto-generated)"
 fi

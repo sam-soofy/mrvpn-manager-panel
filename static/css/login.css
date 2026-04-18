@@ -1,4 +1,4 @@
-:root { color-scheme: dark; --bg: #0b1020; --panel: #111933; --accent: #5b8cff; }
+:root { color-scheme: dark; --bg: #0a0f1f; --panel: #111b33; --accent: #4a9eff; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -6,45 +6,47 @@ body {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at top, #152044, var(--bg));
-  font-family: Arial, sans-serif;
+  background: radial-gradient(circle at top, #1a2540, var(--bg));
+  font-family: system-ui, -apple-system, Arial, sans-serif;
   color: #e8eefc;
 }
 
 .card {
   width: min(420px, calc(100vw - 32px));
-  background: rgba(17, 25, 51, 0.92);
-  border: 1px solid #263253;
-  border-radius: 18px;
-  padding: 28px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  background: rgba(17, 27, 51, 0.95);
+  border: 1px solid #263a66;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
 }
 
 h1 {
-  margin-bottom: 20px;
-  font-size: 22px;
+  margin-bottom: 24px;
+  font-size: 24px;
   color: var(--accent);
+  text-align: center;
 }
 
 input,
 button {
   width: 100%;
-  padding: 12px 14px;
-  border-radius: 12px;
-  margin-top: 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  margin-top: 10px;
   border: none;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 input {
-  background: #0e1628;
-  border: 1px solid #263253;
+  background: #0d1628;
+  border: 1px solid #263a66;
   color: #e8eefc;
   outline: none;
 }
 
 input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.2);
 }
 
 button {
@@ -52,15 +54,16 @@ button {
   color: white;
   font-weight: 700;
   cursor: pointer;
-  margin-top: 16px;
-  transition: opacity 0.15s;
+  margin-top: 20px;
+  transition: all 0.2s;
 }
 
-button:hover { opacity: 0.88; }
+button:hover { opacity: 0.9; transform: translateY(-1px); }
 
 #error {
   color: #ff6b6b;
-  margin-top: 10px;
-  font-size: 13px;
-  min-height: 18px;
+  margin-top: 12px;
+  font-size: 14px;
+  min-height: 20px;
+  text-align: center;
 }
