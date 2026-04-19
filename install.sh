@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 # =============================================================================
-# MRVPN Manager Panel + MasterDnsVPN Installer (v5)
-# Fixes:
-#   - Tracked backup paths (no glob ambiguity, no stale-backup collisions)
-#   - Key gen runs BEFORE config restore (April 5 binary creates default config)
-#   - Temp backups cleaned up at exit via trap
-#   - Uninstall mode (downloads and runs uninstall.sh)
+# MRVPN Manager Panel + MasterDnsVPN Installer (v6)
+# MasterDnsVPN installs to /root (matches official installer behaviour).
+# Binary keeps its original versioned filename — no renaming.
+# Key generation runs BEFORE config restore (April 5 binary writes a default
+# config on first run; we overwrite it immediately after).
+# Temp backups are tracked by path per-run and cleaned up on exit.
 # =============================================================================
 set -euo pipefail
 IFS=$'\n\t'
 
 PANEL_DIR="/opt/mrvpn-manager-panel"
-MASTER_DIR="/root"
+MASTER_DIR="/root"                    # official installer installs here
 REPO_URL="https://github.com/sam-soofy/mrvpn-manager-panel.git"
 PANEL_SERVICE="mrvpn-manager-panel"
 MASTER_SERVICE="masterdnsvpn"
-EXECUTABLE="MasterDnsVPN_Server_Linux_AMD64"
 UNINSTALL_URL="https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/uninstall.sh"
 
 if [[ ${EUID} -ne 0 ]]; then
@@ -24,6 +23,8 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 # ── Per-run backup paths ───────────────────────────────────────────────────────
+# Unique per run (PID + timestamp) — eliminates glob ambiguity and stale-file
+# collisions if the installer is run multiple times without rebooting.
 RUN_ID="$$_$(date +%s)"
 CONFIG_BACKUP="/tmp/mrvpn_server_config_${RUN_ID}.toml"
 KEY_BACKUP="/tmp/mrvpn_encrypt_key_${RUN_ID}.txt"
@@ -123,28 +124,36 @@ do_backup_key() {
   echo "[*] Key backed up to ${KEY_BACKUP}"
 }
 
-# ── Stray-file cleanup (adapted for new MASTER_DIR=/root) ─────────────────────
+# ── Stray-file cleanup ────────────────────────────────────────────────────────
+# Checks the CWD and the existing service's WorkingDirectory for leftover
+# MasterDnsVPN files from previous installs (e.g. old /opt/masterdnsvpn).
+# /root is MASTER_DIR and is intentionally never touched here.
 
 cleanup_stray_files() {
   local CWD
   CWD="$(pwd)"
 
-  declare -a CANDIDATES=("$CWD")
+  declare -a CANDIDATES=()
 
+  # Only include CWD if it is not our install target
+  [[ "$CWD" != "$MASTER_DIR" ]] && CANDIDATES+=("$CWD")
+
+  # Check where an existing service was running from (covers old /opt/masterdnsvpn)
   local SVC_DIR
   SVC_DIR=$(get_service_workdir "$MASTER_SERVICE" || true)
   [[ -n "${SVC_DIR:-}" && "$SVC_DIR" != "$MASTER_DIR" ]] && CANDIDATES+=("$SVC_DIR")
 
+  # /root is MASTER_DIR — never added to stray candidates
+
   declare -A SEEN=()
   for dir in "${CANDIDATES[@]}"; do
-    [[ "$dir" == "$MASTER_DIR" ]] && continue
-    [[ -n "${SEEN[$dir]+_}" ]]    && continue
+    [[ -n "${SEEN[$dir]+_}" ]] && continue
     SEEN[$dir]=1
 
     ! looks_like_master "$dir" && continue
 
     echo ""
-    echo "[!] Found MasterDnsVPN files in: ${dir}"
+    echo "[!] Found MasterDnsVPN files in stray location: ${dir}"
 
     if [[ -f "${dir}/server_config.toml" ]] && ! $HAS_CONFIG_BACKUP \
         && ask_yn "    Back up server_config.toml from ${dir}?"; then
@@ -158,7 +167,7 @@ cleanup_stray_files() {
 
     rm -f "${dir}"/MasterDnsVPN_Server_Linux_AMD64* 2>/dev/null || true
     rm -f "${dir}/server_config.toml" "${dir}/encrypt_key.txt"  2>/dev/null || true
-    rm -f "${dir}/server_config.toml.backup" "${dir}/init_logs.tmp" 2>/dev/null || true
+    rm -f "${dir}/init_logs.tmp" 2>/dev/null || true
     echo "[✓] Cleaned stray files from ${dir}"
   done
 }
@@ -232,22 +241,41 @@ if [[ "$DO_MASTER" == "y" ]]; then
   echo ""
   echo "[*] ── MasterDnsVPN (${VERSION}) ────────────"
 
+  # Read service binary path BEFORE stopping the service
+  # (we need the old binary name to know what to remove)
+  OLD_EXEC=""
+  OLD_SVC_FILE="/etc/systemd/system/${MASTER_SERVICE}.service"
+  if [[ -f "$OLD_SVC_FILE" ]]; then
+    OLD_EXEC=$(grep -E "^ExecStart=" "$OLD_SVC_FILE" | cut -d= -f2- | awk '{print $1}' | xargs basename 2>/dev/null || true)
+  fi
+
   stop_service "$MASTER_SERVICE"
 
-  # Ask about MASTER_DIR files — only if not already backed up from stray cleanup
+  # Ask about existing /root files — only if not already backed up from stray cleanup
   if [[ -f "${MASTER_DIR}/server_config.toml" ]] && ! $HAS_CONFIG_BACKUP; then
-    if ask_yn "    Back up existing server_config.toml from ${MASTER_DIR}?"; then
+    if ask_yn "    Back up existing server_config.toml?"; then
       do_backup_config "${MASTER_DIR}/server_config.toml"
     fi
   fi
   if [[ -f "${MASTER_DIR}/encrypt_key.txt" ]] && ! $HAS_KEY_BACKUP; then
-    if ask_yn "    Back up existing encrypt_key.txt from ${MASTER_DIR}?"; then
+    if ask_yn "    Back up existing encrypt_key.txt?"; then
       do_backup_key "${MASTER_DIR}/encrypt_key.txt"
     fi
   fi
 
-  rm -rf "${MASTER_DIR}"
-  mkdir -p "${MASTER_DIR}"
+  # Remove old binary files from /root only — NEVER rm -rf /root
+  echo "[*] Removing old MasterDnsVPN binary files from ${MASTER_DIR}..."
+  rm -f "${MASTER_DIR}"/MasterDnsVPN_Server_Linux_AMD64* 2>/dev/null || true
+  rm -f "${MASTER_DIR}/init_logs.tmp" 2>/dev/null || true
+  # Remove old config/key only if we did NOT back them up
+  # (if we backed them up, we will restore them after key gen)
+  if ! $HAS_CONFIG_BACKUP; then
+    rm -f "${MASTER_DIR}/server_config.toml" 2>/dev/null || true
+  fi
+  if ! $HAS_KEY_BACKUP; then
+    rm -f "${MASTER_DIR}/encrypt_key.txt" 2>/dev/null || true
+  fi
+
   cd "${MASTER_DIR}"
 
   # ── Free port 53 ────────────────────────────────────────────────────────────
@@ -266,39 +294,45 @@ if [[ "$DO_MASTER" == "y" ]]; then
 
   # ── Download binary ──────────────────────────────────────────────────────────
   if [[ "$VERSION" == "april5" ]]; then
-    URL="https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05.191930-7757d2d/MasterDnsVPN_Server_Linux_AMD64.zip"
+    DL_URL="https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05.191930-7757d2d/MasterDnsVPN_Server_Linux_AMD64.zip"
   else
-    URL="https://github.com/masterking32/MasterDnsVPN/releases/latest/download/MasterDnsVPN_Server_Linux_AMD64.zip"
+    DL_URL="https://github.com/masterking32/MasterDnsVPN/releases/latest/download/MasterDnsVPN_Server_Linux_AMD64.zip"
   fi
   echo "[*] Downloading ${VERSION}..."
-  curl -fSL --progress-bar "$URL" -o server.zip
+  curl -fSL --progress-bar "$DL_URL" -o server.zip
   unzip -o server.zip
   rm -f server.zip
 
-  # Normalize binary name
-  if [[ ! -f "$EXECUTABLE" ]]; then
-    FOUND=$(ls -t "${EXECUTABLE}"_v* 2>/dev/null | head -1)
-    [[ -z "$FOUND" ]] && FOUND=$(find . -maxdepth 1 -name "MasterDnsVPN_Server_Linux_AMD64*" -type f | head -1)
-    [[ -n "$FOUND" ]] && cp "$FOUND" "$EXECUTABLE"
+  # Find the extracted binary — keep its original versioned name, do not rename.
+  # Latest releases ship as MasterDnsVPN_Server_Linux_AMD64_v2026.xx.xx
+  # April 5 may ship as the plain name MasterDnsVPN_Server_Linux_AMD64
+  MASTER_BINARY=$(ls -t MasterDnsVPN_Server_Linux_AMD64_v* 2>/dev/null | head -1)
+  if [[ -z "$MASTER_BINARY" ]]; then
+    MASTER_BINARY=$(find . -maxdepth 1 -name "MasterDnsVPN_Server_Linux_AMD64*" -type f | head -1)
   fi
-  chmod +x "$EXECUTABLE"
-
-  # ── NEW: Clean leftover versioned binaries (with _ suffix protection) ───────
-  echo "[*] Cleaning leftover versioned MasterDnsVPN binaries..."
-  rm -f MasterDnsVPN_Server_Linux_AMD64_* 2>/dev/null || true
-  # Extra safety: remove any that end with _ (in case of weird naming)
-  rm -f MasterDnsVPN_Server_Linux_AMD64_*_ 2>/dev/null || true
+  if [[ -z "$MASTER_BINARY" ]]; then
+    echo "[!] Could not find MasterDnsVPN binary after extraction"
+    exit 1
+  fi
+  MASTER_BINARY=$(basename "$MASTER_BINARY")
+  chmod +x "$MASTER_BINARY"
+  echo "[*] Binary: ${MASTER_BINARY}"
 
   # ── KEY GENERATION — must happen BEFORE config restore ─────────────────────
+  # April 5 binary writes a default server_config.toml on first start.
+  # Generating the key first lets us safely overwrite that default below.
   if $HAS_KEY_BACKUP; then
     cp "$KEY_BACKUP" encrypt_key.txt
     echo "[*] Encryption key restored from backup"
   else
     echo "[*] Generating encryption key..."
     if [[ "$VERSION" == "april12" ]]; then
-      ./"$EXECUTABLE" -genkey -nowait
+      # April 12 supports a clean non-daemonised key-gen flag
+      ./"$MASTER_BINARY" -genkey -nowait
     else
-      ./"$EXECUTABLE" > /tmp/mdns_init.log 2>&1 &
+      # April 5: start the binary, wait for the key file to appear, then kill it.
+      # The binary also writes a default server_config.toml here — we overwrite it next.
+      ./"$MASTER_BINARY" > /tmp/mdns_init.log 2>&1 &
       INIT_PID=$!
       for i in {1..10}; do
         [[ -f encrypt_key.txt ]] && break
@@ -307,16 +341,22 @@ if [[ "$DO_MASTER" == "y" ]]; then
       kill "$INIT_PID" 2>/dev/null || true
       wait "$INIT_PID" 2>/dev/null || true
       rm -f /tmp/mdns_init.log
-      [[ ! -f encrypt_key.txt ]] && echo "[!] Key generation timed out — check port 53 is free"
+      if [[ ! -f encrypt_key.txt ]]; then
+        echo "[!] Key generation timed out — verify port 53 is free and try again"
+        exit 1
+      fi
     fi
   fi
 
   # ── CONFIG RESTORE / INSTALL — after key gen ───────────────────────────────
   if $HAS_CONFIG_BACKUP; then
+    # User's real config — domain is already baked in from a previous install.
+    # The sed is a no-op if there is no placeholder; safe to run regardless.
     cp "$CONFIG_BACKUP" server_config.toml
     sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
     echo "[*] server_config.toml restored from backup"
   else
+    # Fresh install — use our tuned template and inject the domain.
     TUNED="${PANEL_DIR}/${VERSION}_server_config.toml"
     if [[ -f "$TUNED" ]]; then
       cp "$TUNED" server_config.toml
@@ -324,12 +364,12 @@ if [[ "$DO_MASTER" == "y" ]]; then
       echo "[*] Using tuned config for ${VERSION} with domain ${USER_DOMAIN}"
     else
       echo "[!] Tuned config not found at ${TUNED} — binary default will be used"
+      # Binary already wrote a default config during key gen; try to patch the domain in.
       [[ -f server_config.toml ]] && sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
     fi
   fi
 
   chmod 600 server_config.toml encrypt_key.txt 2>/dev/null || true
-  chown -R root:root "${MASTER_DIR}"
 
   # ── Systemd service ──────────────────────────────────────────────────────────
   cat > "/etc/systemd/system/${MASTER_SERVICE}.service" <<UNIT
@@ -341,7 +381,7 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=${MASTER_DIR}
-ExecStart=${MASTER_DIR}/${EXECUTABLE}
+ExecStart=${MASTER_DIR}/${MASTER_BINARY}
 Restart=always
 RestartSec=5
 LimitNOFILE=1000000
@@ -350,7 +390,12 @@ WantedBy=multi-user.target
 UNIT
 
   systemctl daemon-reload
-  systemctl enable --now "${MASTER_SERVICE}"
+  systemctl enable "${MASTER_SERVICE}"
+
+  # Give config a moment to settle, then do a clean start
+  echo "[*] Starting MasterDnsVPN (waiting 3s for config to settle)..."
+  sleep 3
+  systemctl restart "${MASTER_SERVICE}"
   echo "[✓] MasterDnsVPN (${VERSION}) installed and started"
 fi
 
@@ -361,9 +406,10 @@ echo "  Installation complete!"
 echo "========================================"
 
 if [[ "$DO_MASTER" == "y" ]]; then
-  echo "VPN dir → ${MASTER_DIR}"
-  echo "Version → ${VERSION}"
-  echo "Domain  → ${USER_DOMAIN}"
+  echo "VPN dir   → ${MASTER_DIR}"
+  echo "Binary    → ${MASTER_BINARY}"
+  echo "Version   → ${VERSION}"
+  echo "Domain    → ${USER_DOMAIN}"
   echo ""
 fi
 
