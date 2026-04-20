@@ -190,7 +190,7 @@ RESOLVED_CONF="/etc/systemd/resolved.conf"
 
 if [[ -f "$RESOLVED_CONF" ]] && grep -q "^DNSStubListener=no" "$RESOLVED_CONF"; then
   sed -i '/^DNSStubListener=no/d' "$RESOLVED_CONF"
-  systemctl restart systemd-resolved 2>/dev/null || true
+  systemctl restart --no-block systemd-resolved 2>/dev/null || true
   echo "[✓] DNSStubListener restored to default (stub re-enabled on 127.0.0.53)"
 else
   echo "[~] No DNSStubListener change found — skipping"

@@ -48,11 +48,29 @@ echo ""
 read -r -p "Choose (1/2): " MODE_CHOICE
 
 if [[ "$MODE_CHOICE" == "2" ]]; then
+  echo "[*] Running uninstaller..."
+
+  # Prefer a local uninstaller (works even if DNS/network is broken).
+  if [[ -f "./uninstall.sh" ]]; then
+    bash "./uninstall.sh"
+    exit 0
+  fi
+  if [[ -f "${PANEL_DIR}/uninstall.sh" ]]; then
+    bash "${PANEL_DIR}/uninstall.sh"
+    exit 0
+  fi
+
+  # Fallback to downloading it (add timeouts so we don't hang forever).
   echo "[*] Downloading uninstaller..."
-  curl -fsSL "$UNINSTALL_URL" -o /tmp/mrvpn_uninstall.sh
-  bash /tmp/mrvpn_uninstall.sh
-  rm -f /tmp/mrvpn_uninstall.sh
-  exit 0
+  if curl -fsSL --connect-timeout 10 --max-time 60 "$UNINSTALL_URL" -o /tmp/mrvpn_uninstall.sh; then
+    bash /tmp/mrvpn_uninstall.sh
+    rm -f /tmp/mrvpn_uninstall.sh
+    exit 0
+  fi
+
+  echo "[!] Could not download uninstaller (network/DNS issue?)"
+  echo "    If the panel is installed, run: sudo bash ${PANEL_DIR}/uninstall.sh"
+  exit 1
 fi
 
 [[ "$MODE_CHOICE" != "1" ]] && echo "[!] Invalid choice" && exit 1
@@ -79,6 +97,37 @@ if [[ "$DO_MASTER" == "y" ]]; then
 fi
 
 ask_yn() { read -r -p "$1 (y/n): " ans; [[ "$ans" == "y" ]]; }
+
+# ── Dependency helpers ───────────────────────────────────────────────────────
+
+ensure_python3_venv() {
+  command -v python3 >/dev/null 2>&1 || { echo "[!] python3 not found"; exit 1; }
+
+  # On Debian/Ubuntu this fails when python3-venv (or pythonX.Y-venv) is missing.
+  python3 -c 'import venv, ensurepip' >/dev/null 2>&1 && return 0
+
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "[*] Installing Python venv support (python3-venv)..."
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
+
+    # Prefer the meta-package; fall back to the versioned package if needed.
+    if ! apt-get install -y python3-venv; then
+      local py_mm
+      py_mm="$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')"
+      apt-get install -y "python${py_mm}-venv"
+    fi
+
+    python3 -c 'import venv, ensurepip' >/dev/null 2>&1 || {
+      echo "[!] python venv still unavailable after install; check your apt repositories"
+      exit 1
+    }
+    return 0
+  fi
+
+  echo "[!] Missing venv/ensurepip; install python3-venv using your distro package manager"
+  exit 1
+}
 
 # ── Service helpers ───────────────────────────────────────────────────────────
 
@@ -190,6 +239,7 @@ if [[ "$DO_PANEL" == "y" ]]; then
     git clone "$REPO_URL" "$PANEL_DIR"
   fi
   cd "$PANEL_DIR"
+  ensure_python3_venv
   python3 -m venv .venv
   .venv/bin/pip install --upgrade pip --quiet
   .venv/bin/pip install -r requirements.txt --quiet
