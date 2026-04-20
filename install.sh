@@ -343,13 +343,30 @@ if [[ "$DO_MASTER" == "y" ]]; then
   done
 
   # ── Download binary ──────────────────────────────────────────────────────────
-  if [[ "$VERSION" == "april5" ]]; then
-    DL_URL="https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05.191930-7757d2d/MasterDnsVPN_Server_Linux_AMD64.zip"
-  else
-    DL_URL="https://github.com/masterking32/MasterDnsVPN/releases/latest/download/MasterDnsVPN_Server_Linux_AMD64.zip"
-  fi
   echo "[*] Downloading ${VERSION}..."
-  curl -fSL --progress-bar "$DL_URL" -o server.zip
+  declare -a DL_URLS=()
+  if [[ "$VERSION" == "april5" ]]; then
+    # April 5 is pinned to a specific release tag.
+    # Some repos used an extended tag name; try both to avoid 404 regressions.
+    DL_URLS+=("https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05/MasterDnsVPN_Server_Linux_AMD64.zip")
+    DL_URLS+=("https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05.191930-7757d2d/MasterDnsVPN_Server_Linux_AMD64.zip")
+  else
+    DL_URLS+=("https://github.com/masterking32/MasterDnsVPN/releases/latest/download/MasterDnsVPN_Server_Linux_AMD64.zip")
+  fi
+
+  DOWNLOADED=false
+  for u in "${DL_URLS[@]}"; do
+    rm -f server.zip 2>/dev/null || true
+    if curl -fSL --progress-bar "$u" -o server.zip; then
+      DOWNLOADED=true
+      break
+    fi
+    echo "[~] Download failed: ${u}"
+  done
+  if ! $DOWNLOADED; then
+    echo "[!] Could not download MasterDnsVPN (${VERSION}) from GitHub"
+    exit 1
+  fi
   unzip -o server.zip
   rm -f server.zip
 
