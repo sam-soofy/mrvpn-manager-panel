@@ -81,6 +81,75 @@ read -r -p "Install/update MasterDnsVPN? (y/n): " DO_MASTER
 
 VERSION="" USER_DOMAIN=""
 
+normalize_domain() {
+  local d="$1"
+  d="${d,,}"
+  d="${d#"${d%%[![:space:]]*}"}"
+  d="${d%"${d##*[![:space:]]}"}"
+  [[ "$d" == *"." ]] && d="${d%.}"
+  printf '%s' "$d"
+}
+
+is_valid_domain() {
+  local d="$1"
+  [[ -n "$d" ]] || return 1
+  [[ ${#d} -le 253 ]] || return 1
+  [[ "$d" != *".."* ]] || return 1
+
+  local IFS='.'
+  read -r -a parts <<<"$d"
+  [[ ${#parts[@]} -ge 3 ]] || return 1
+
+  local label
+  for label in "${parts[@]}"; do
+    [[ -n "$label" ]] || return 1
+    [[ ${#label} -le 63 ]] || return 1
+    [[ "$label" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || return 1
+  done
+}
+
+prompt_for_domain() {
+  local d
+  while true; do
+    read -r -p "Enter your NS record domain (e.g. vpn.example.com): " d
+    d="$(normalize_domain "$d")"
+    if is_valid_domain "$d"; then
+      printf '%s' "$d"
+      return 0
+    fi
+    echo "[!] Invalid domain. Expected pattern: subdomain.domain.tld (example: vpn.example.com)" >&2
+  done
+}
+
+escape_sed_replacement() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//&/\\&}"
+  s="${s//|/\\|}"
+  printf '%s' "$s"
+}
+
+set_domain_in_config() {
+  local file="$1"
+  local domain="$2"
+  [[ -f "$file" ]] || return 1
+
+  local esc
+  esc="$(escape_sed_replacement "$domain")"
+
+  if grep -q '{{DOMAIN}}' "$file" 2>/dev/null; then
+    sed -i "s|{{DOMAIN}}|${esc}|g" "$file"
+    return 0
+  fi
+
+  if grep -Eq '^[[:space:]]*DOMAIN[[:space:]]*=' "$file" 2>/dev/null; then
+    sed -i -E "s|^([[:space:]]*)DOMAIN[[:space:]]*=.*$|\\1DOMAIN = [\"${esc}\"]|g" "$file"
+    return 0
+  fi
+
+  return 2
+}
+
 if [[ "$DO_MASTER" == "y" ]]; then
   echo ""
   echo "[*] MasterDnsVPN versions:"
@@ -92,8 +161,7 @@ if [[ "$DO_MASTER" == "y" ]]; then
     2) VERSION="april12" ;;
     *) echo "[!] Invalid choice"; exit 1 ;;
   esac
-  read -r -p "Enter your domain (e.g. vpn.example.com): " USER_DOMAIN
-  [[ -z "$USER_DOMAIN" ]] && { echo "[!] Domain required"; exit 1; }
+  USER_DOMAIN="$(prompt_for_domain)"
 fi
 
 ask_yn() { read -r -p "$1 (y/n): " ans; [[ "$ans" == "y" ]]; }
@@ -508,22 +576,29 @@ if [[ "$DO_MASTER" == "y" ]]; then
 
   # ── CONFIG RESTORE / INSTALL — after key gen ───────────────────────────────
   if $HAS_CONFIG_BACKUP; then
-    # User's real config — domain is already baked in from a previous install.
-    # The sed is a no-op if there is no placeholder; safe to run regardless.
+    # Restore config; ensure it uses the domain the user entered in this run.
     cp "$CONFIG_BACKUP" server_config.toml
-    sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
+    if ! set_domain_in_config server_config.toml "$USER_DOMAIN"; then
+      echo "[!] Warning: could not patch domain into server_config.toml (no DOMAIN key / placeholder found)"
+    fi
     echo "[*] server_config.toml restored from backup"
   else
     # Fresh install — use our tuned template and inject the domain.
-    TUNED="${PANEL_DIR}/${VERSION}_server_config.toml"
+    TUNED="${PANEL_DIR}/config/tuned/${VERSION}_server_config.toml"
     if [[ -f "$TUNED" ]]; then
       cp "$TUNED" server_config.toml
-      sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml
+      if ! set_domain_in_config server_config.toml "$USER_DOMAIN"; then
+        echo "[!] Warning: could not patch domain into tuned server_config.toml (unexpected format)"
+      fi
       echo "[*] Using tuned config for ${VERSION} with domain ${USER_DOMAIN}"
     else
       echo "[!] Tuned config not found at ${TUNED} — binary default will be used"
       # Binary already wrote a default config during key gen; try to patch the domain in.
-      [[ -f server_config.toml ]] && sed -i "s|{{DOMAIN}}|${USER_DOMAIN}|g" server_config.toml 2>/dev/null || true
+      if [[ -f server_config.toml ]]; then
+        if ! set_domain_in_config server_config.toml "$USER_DOMAIN"; then
+          echo "[!] Warning: could not patch domain into binary default server_config.toml"
+        fi
+      fi
     fi
   fi
 
