@@ -335,6 +335,16 @@ if [[ "$DO_MASTER" == "y" ]]; then
   echo "DNSStubListener=no" >> /etc/systemd/resolved.conf 2>/dev/null || true
   systemctl restart systemd-resolved 2>/dev/null || true
 
+  # When DNSStubListener is disabled, systems that still point /etc/resolv.conf
+  # at the stub (127.0.0.53) will lose DNS. Switch to the non-stub resolv.conf.
+  if [[ -L /etc/resolv.conf ]]; then
+    RESOLV_TARGET="$(readlink -f /etc/resolv.conf 2>/dev/null || true)"
+    if [[ "$RESOLV_TARGET" == "/run/systemd/resolve/stub-resolv.conf" ]] && [[ -f /run/systemd/resolve/resolv.conf ]]; then
+      ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+      echo "[*] Updated /etc/resolv.conf for DNSStubListener=no"
+    fi
+  fi
+
   for svc in named bind9 dnsmasq; do
     stop_service "$svc"
   done
@@ -357,7 +367,7 @@ if [[ "$DO_MASTER" == "y" ]]; then
   DOWNLOADED=false
   for u in "${DL_URLS[@]}"; do
     rm -f server.zip 2>/dev/null || true
-    if curl -fSL --progress-bar "$u" -o server.zip; then
+    if curl -fSL --show-error --connect-timeout 10 --max-time 900 --retry 2 --retry-delay 2 --retry-connrefused --progress-bar "$u" -o server.zip; then
       DOWNLOADED=true
       break
     fi
@@ -365,6 +375,17 @@ if [[ "$DO_MASTER" == "y" ]]; then
   done
   if ! $DOWNLOADED; then
     echo "[!] Could not download MasterDnsVPN (${VERSION}) from GitHub"
+    echo "[i] Download troubleshooting:"
+    echo "    /etc/resolv.conf -> $(readlink -f /etc/resolv.conf 2>/dev/null || echo 'missing')"
+    echo "    nameservers:"
+    sed -n 's/^nameserver /      - /p' /etc/resolv.conf 2>/dev/null || true
+    for h in github.com raw.githubusercontent.com objects.githubusercontent.com release-assets.githubusercontent.com; do
+      if getent hosts "$h" >/dev/null 2>&1; then
+        echo "    resolves: ${h}"
+      else
+        echo "    NO DNS:   ${h}"
+      fi
+    done
     exit 1
   fi
   unzip -o server.zip

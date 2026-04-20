@@ -190,6 +190,16 @@ RESOLVED_CONF="/etc/systemd/resolved.conf"
 
 if [[ -f "$RESOLVED_CONF" ]] && grep -q "^DNSStubListener=no" "$RESOLVED_CONF"; then
   sed -i '/^DNSStubListener=no/d' "$RESOLVED_CONF"
+  # If we previously switched /etc/resolv.conf to the non-stub file, restore it
+  # back to the stub symlink now that the stub listener is re-enabled.
+  if [[ -L /etc/resolv.conf ]]; then
+    RESOLV_TARGET="$(readlink -f /etc/resolv.conf 2>/dev/null || true)"
+    if [[ "$RESOLV_TARGET" == "/run/systemd/resolve/resolv.conf" ]] && [[ -f /run/systemd/resolve/stub-resolv.conf ]]; then
+      ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+      echo "[*] Restored /etc/resolv.conf to systemd-resolved stub"
+    fi
+  fi
+
   systemctl restart --no-block systemd-resolved 2>/dev/null || true
   echo "[✓] DNSStubListener restored to default (stub re-enabled on 127.0.0.53)"
 else
