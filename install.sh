@@ -240,9 +240,12 @@ if [[ "$DO_PANEL" == "y" ]]; then
   fi
   cd "$PANEL_DIR"
   ensure_python3_venv
+  echo "[*] Creating Python virtual environment..."
   python3 -m venv .venv
-  .venv/bin/pip install --upgrade pip --quiet
-  .venv/bin/pip install -r requirements.txt --quiet
+  echo "[*] Upgrading pip..."
+  .venv/bin/pip install --upgrade pip --disable-pip-version-check --timeout 30 --retries 3
+  echo "[*] Installing panel Python requirements..."
+  .venv/bin/pip install -r requirements.txt --disable-pip-version-check --timeout 30 --retries 3
 
   [[ ! -f jwt_secret.txt ]] && openssl rand -hex 32 > jwt_secret.txt && chmod 600 jwt_secret.txt
   [[ ! -f admin_pass.txt  ]] && openssl rand -hex 16 > admin_pass.txt  && chmod 600 admin_pass.txt
@@ -282,7 +285,10 @@ WantedBy=multi-user.target
 UNIT
 
   systemctl daemon-reload
-  systemctl enable --now "${PANEL_SERVICE}" mrvpn-config-scheduler
+  systemctl enable "${PANEL_SERVICE}" mrvpn-config-scheduler
+  echo "[*] Starting panel + scheduler services (non-blocking)..."
+  systemctl restart --no-block "${PANEL_SERVICE}" 2>/dev/null || true
+  systemctl restart --no-block mrvpn-config-scheduler 2>/dev/null || true
   echo "[✓] Panel + scheduler installed"
 fi
 
