@@ -62,7 +62,7 @@ if [[ "$MODE_CHOICE" == "2" ]]; then
 
   # Fallback to downloading it (add timeouts so we don't hang forever).
   echo "[*] Downloading uninstaller..."
-  if curl -fsSL --connect-timeout 10 --max-time 60 "$UNINSTALL_URL" -o /tmp/mrvpn_uninstall.sh; then
+  if curl -fL --progress-bar --show-error --connect-timeout 10 --max-time 60 "$UNINSTALL_URL" -o /tmp/mrvpn_uninstall.sh; then
     bash /tmp/mrvpn_uninstall.sh
     rm -f /tmp/mrvpn_uninstall.sh
     exit 0
@@ -100,22 +100,87 @@ ask_yn() { read -r -p "$1 (y/n): " ans; [[ "$ans" == "y" ]]; }
 
 # ── Dependency helpers ───────────────────────────────────────────────────────
 
+APT_UPDATED=false
+
+apt_update_once() {
+  $APT_UPDATED && return 0
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  APT_UPDATED=true
+}
+
+apt_install() {
+  command -v apt-get >/dev/null 2>&1 || return 1
+  apt_update_once
+  apt-get install -y --no-install-recommends "$@"
+}
+
+install_apt_deps() {
+  command -v apt-get >/dev/null 2>&1 || return 0
+  [[ "$DO_PANEL" == "y" || "$DO_MASTER" == "y" ]] || return 0
+
+  declare -a pkgs=()
+
+  # Common
+  pkgs+=(ca-certificates)
+
+  # We use curl for uninstall fallback (and often for debugging)
+  if [[ "$DO_PANEL" == "y" || "$DO_MASTER" == "y" ]]; then
+    pkgs+=(curl)
+  fi
+
+  # We need git to clone/pull the panel repo (also used to access bundled binaries)
+  if [[ "$DO_PANEL" == "y" || "$DO_MASTER" == "y" ]]; then
+    pkgs+=(git)
+  fi
+
+  # Panel runtime
+  if [[ "$DO_PANEL" == "y" ]]; then
+    pkgs+=(python3 python3-venv openssl)
+  fi
+
+  # MasterDnsVPN install steps
+  if [[ "$DO_MASTER" == "y" ]]; then
+    pkgs+=(unzip iproute2)
+  fi
+
+  # De-duplicate
+  declare -A seen=()
+  declare -a uniq=()
+  for p in "${pkgs[@]}"; do
+    [[ -n "${seen[$p]+_}" ]] && continue
+    seen[$p]=1
+    uniq+=("$p")
+  done
+
+  echo ""
+  echo "[*] Installing required apt packages:"
+  for p in "${uniq[@]}"; do
+    echo "    - ${p}"
+  done
+  apt_install "${uniq[@]}"
+  echo "[✓] System packages installed"
+  echo ""
+}
+
 ensure_python3_venv() {
-  command -v python3 >/dev/null 2>&1 || { echo "[!] python3 not found"; exit 1; }
+  if ! command -v python3 >/dev/null 2>&1; then
+    command -v apt-get >/dev/null 2>&1 || { echo "[!] python3 not found"; exit 1; }
+    echo "[*] Installing python3..."
+    apt_install python3
+  fi
 
   # On Debian/Ubuntu this fails when python3-venv (or pythonX.Y-venv) is missing.
   python3 -c 'import venv, ensurepip' >/dev/null 2>&1 && return 0
 
   if command -v apt-get >/dev/null 2>&1; then
     echo "[*] Installing Python venv support (python3-venv)..."
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y
 
     # Prefer the meta-package; fall back to the versioned package if needed.
-    if ! apt-get install -y python3-venv; then
+    if ! apt_install python3-venv; then
       local py_mm
       py_mm="$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')"
-      apt-get install -y "python${py_mm}-venv"
+      apt_install "python${py_mm}-venv"
     fi
 
     python3 -c 'import venv, ensurepip' >/dev/null 2>&1 || {
@@ -128,6 +193,9 @@ ensure_python3_venv() {
   echo "[!] Missing venv/ensurepip; install python3-venv using your distro package manager"
   exit 1
 }
+
+# Install all required apt packages early (before git/venv/unzip/ss usage).
+install_apt_deps
 
 # ── Service helpers ───────────────────────────────────────────────────────────
 
@@ -297,6 +365,33 @@ if [[ "$DO_MASTER" == "y" ]]; then
   echo ""
   echo "[*] ── MasterDnsVPN (${VERSION}) ────────────"
 
+  # Prefer bundled zips from the panel repo (avoids GitHub release asset issues).
+  BUNDLED_ZIP=""
+  if [[ "$VERSION" == "april5" ]]; then
+    BUNDLED_ZIP="${PANEL_DIR}/mrvpn_binaries/MasterDnsVPN_Server_April_05_Linux_AMD64.zip"
+  else
+    BUNDLED_ZIP="${PANEL_DIR}/mrvpn_binaries/MasterDnsVPN_Server_April_12_Linux_AMD64.zip"
+  fi
+
+  if [[ ! -f "$BUNDLED_ZIP" ]]; then
+    echo "[*] Bundled MasterDnsVPN zip not found; fetching panel repo to get it..."
+    mkdir -p "$PANEL_DIR"
+    if [[ -d "${PANEL_DIR}/.git" ]]; then
+      git -C "$PANEL_DIR" pull --ff-only
+    else
+      if [[ -n "$(ls -A "$PANEL_DIR" 2>/dev/null || true)" ]]; then
+        echo "[!] ${PANEL_DIR} exists but is not a git repo; cannot fetch bundled binaries"
+        exit 1
+      fi
+      git clone "$REPO_URL" "$PANEL_DIR"
+    fi
+  fi
+  if [[ ! -f "$BUNDLED_ZIP" ]]; then
+    echo "[!] Bundled zip still missing: ${BUNDLED_ZIP}"
+    exit 1
+  fi
+  echo "[*] Using bundled zip: ${BUNDLED_ZIP}"
+
   # Read service binary path BEFORE stopping the service
   # (we need the old binary name to know what to remove)
   OLD_EXEC=""
@@ -358,42 +453,11 @@ if [[ "$DO_MASTER" == "y" ]]; then
     kill -9 "$pid" 2>/dev/null || true
   done
 
-  # ── Download binary ──────────────────────────────────────────────────────────
-  echo "[*] Downloading ${VERSION}..."
-  declare -a DL_URLS=()
-  if [[ "$VERSION" == "april5" ]]; then
-    # April 5 is pinned to a specific release tag.
-    # Some repos used an extended tag name; try both to avoid 404 regressions.
-    DL_URLS+=("https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05/MasterDnsVPN_Server_Linux_AMD64.zip")
-    DL_URLS+=("https://github.com/masterking32/MasterDnsVPN/releases/download/v2026.04.05.191930-7757d2d/MasterDnsVPN_Server_Linux_AMD64.zip")
-  else
-    DL_URLS+=("https://github.com/masterking32/MasterDnsVPN/releases/latest/download/MasterDnsVPN_Server_Linux_AMD64.zip")
-  fi
-
-  DOWNLOADED=false
-  for u in "${DL_URLS[@]}"; do
-    rm -f server.zip 2>/dev/null || true
-    if curl -fSL --show-error --connect-timeout 10 --max-time 900 --retry 2 --retry-delay 2 --retry-connrefused --progress-bar "$u" -o server.zip; then
-      DOWNLOADED=true
-      break
-    fi
-    echo "[~] Download failed: ${u}"
-  done
-  if ! $DOWNLOADED; then
-    echo "[!] Could not download MasterDnsVPN (${VERSION}) from GitHub"
-    echo "[i] Download troubleshooting:"
-    echo "    /etc/resolv.conf -> $(readlink -f /etc/resolv.conf 2>/dev/null || echo 'missing')"
-    echo "    nameservers:"
-    sed -n 's/^nameserver /      - /p' /etc/resolv.conf 2>/dev/null || true
-    for h in github.com raw.githubusercontent.com objects.githubusercontent.com release-assets.githubusercontent.com; do
-      if getent hosts "$h" >/dev/null 2>&1; then
-        echo "    resolves: ${h}"
-      else
-        echo "    NO DNS:   ${h}"
-      fi
-    done
-    exit 1
-  fi
+  # ── Extract bundled binary ───────────────────────────────────────────────────
+  echo "[*] Extracting ${VERSION}..."
+  rm -f server.zip 2>/dev/null || true
+  cp -f "$BUNDLED_ZIP" server.zip
+  command -v unzip >/dev/null 2>&1 || { echo "[!] unzip not found (install unzip)"; exit 1; }
   unzip -o server.zip
   rm -f server.zip
 
