@@ -3,11 +3,21 @@
 //  Depends on: utils.js, realtime.js, scheduler.js
 // ═══════════════════════════════════════════════════
 
+console.log("[MRVPN] main.js loaded");
+
 // ── Restart VPN ───────────────────────────────────────
 async function restartVPN() {
   if (!confirm("Restart MasterDnsVPN now?")) return;
-  await apiFetch("/api/restart", { method: "POST" });
-  showToast("Restart command sent ✓", "success");
+  console.log("[MRVPN] restartVPN: sending POST /api/restart");
+  try {
+    const res  = await apiFetch("/api/restart", { method: "POST" });
+    const data = await res.json();
+    console.log("[MRVPN] restartVPN: response:", data);
+    showToast(data.ok ? "Restart command sent ✓" : "Restart failed", data.ok ? "success" : "error");
+  } catch (err) {
+    console.error("[MRVPN] restartVPN error:", err.message);
+    showToast("Restart failed: " + err.message, "error");
+  }
 }
 
 // ── Close modals on overlay click ─────────────────────
@@ -18,19 +28,28 @@ document.querySelectorAll(".modal-overlay").forEach(overlay => {
 });
 
 // ── Init ──────────────────────────────────────────────
-// Verify the JWT server-side first. Only if the token is valid do we:
-//   1. Show the dashboard content (header + main are hidden by CSS)
-//   2. Connect the socket (so unauthenticated sockets never happen)
-//   3. Load the schedule list
 (async function init() {
-  const ok = await verifyAuth();
-  if (!ok) return; // verifyAuth already redirected to /login
+  console.log("[MRVPN] init: starting...");
 
-  // Reveal the dashboard now that we know the session is valid
+  const ok = await verifyAuth();
+  if (!ok) {
+    console.warn("[MRVPN] init: auth failed — staying on login");
+    return;
+  }
+
+  console.log("[MRVPN] init: auth OK — revealing dashboard");
   document.getElementById("auth-loading").style.display = "none";
   document.getElementById("page-header").style.display  = "";
   document.getElementById("page-main").style.display    = "";
 
+  console.log("[MRVPN] init: initialising chart");
+  initChart();
+
+  console.log("[MRVPN] init: initialising socket");
   initSocket();
+
+  console.log("[MRVPN] init: loading schedules");
   loadSchedules();
+
+  console.log("[MRVPN] init: complete");
 })();

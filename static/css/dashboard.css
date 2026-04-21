@@ -98,6 +98,15 @@ main {
 .btn-neutral  { background: #1e2d55;        color: var(--text); border: 1px solid var(--border); }
 .btn-ghost    { background: transparent;    color: var(--muted); border: 1px solid var(--border); }
 .btn-sm       { padding: 6px 12px; font-size: 12.5px; }
+.btn-icon     { padding: 6px 10px; }
+
+/* Action button row (VPN Control card) */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
 
 /* Modal */
 .modal-overlay {
@@ -143,7 +152,14 @@ main {
 }
 .code-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(74,158,255,0.15); }
 
-/* Scheduler */
+/* ── Scheduler ───────────────────────────────────────── */
+
+.schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .schedule-item {
   background: var(--panel2);
   border: 1px solid var(--border);
@@ -154,8 +170,82 @@ main {
   gap: 16px;
 }
 .schedule-time { font-size: 24px; font-weight: 700; color: var(--accent); min-width: 68px; }
-.schedule-name { font-weight: 600; margin-bottom: 4px; }
+.schedule-info { flex: 1; min-width: 0; }
+.schedule-name { font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .schedule-days { font-size: 12px; color: var(--muted); }
+.schedule-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.empty-msg {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+/* ── Schedule form fields ────────────────────────────── */
+
+.form-row {
+  margin-bottom: 18px;
+}
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.form-input {
+  width: 100%;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(74,158,255,0.15);
+}
+
+/* Days-of-week checkbox row */
+.days-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.day-check {
+  display: none; /* hidden — styled via the label */
+}
+.day-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+}
+.day-check:checked + .day-label {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.day-label:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 /* Toast */
 #toast {
