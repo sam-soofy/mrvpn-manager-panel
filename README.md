@@ -1,5 +1,7 @@
 # MRVPN Manager Panel
 
+> 🇮🇷 [فارسی](README_fa.md)
+
 A lightweight web panel to install, manage, and monitor servers running [MasterDnsVPN](https://github.com/masterking32/MasterDnsVPN).
 
 ---
@@ -13,7 +15,6 @@ A lightweight web panel to install, manage, and monitor servers running [MasterD
 - **Browser config editor** — view and edit `server_config.toml` and `encrypt_key.txt` directly from the dashboard, with automatic service restart on save
 - **Config scheduler** — define multiple server configs for different times of day and have a system service auto-swap them on a schedule
 - **One-command reinstall and version switching** — preserves your key and config if you want
-- **One-command uninstall** — cleanly removes all services, files, and system changes
 - **Systemd-managed** — panel, VPN, and scheduler all run as services, restart on crash and reboot
 
 ---
@@ -27,33 +28,11 @@ sudo bash install.sh
 
 The installer will ask you:
 
-1. Whether to **Install/Update** or **Uninstall**
-2. Whether to install/update the **Panel**
-3. Whether to install/update **MasterDnsVPN**
+1. Whether to install/update the **Panel**
+2. Whether to install/update **MasterDnsVPN**
    - Which version: April 5 or April 12
    - Your domain (e.g. `vpn.example.com`)
    - Whether to keep your existing `server_config.toml` and `encrypt_key.txt` if found
-
-MasterDnsVPN files (`server_config.toml`, `encrypt_key.txt`, binary) are installed to `/root`, matching the official installer's behaviour.
-
----
-
-## Uninstallation
-
-Choose option **2** when running the installer, or run the uninstaller directly:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/uninstall.sh -o uninstall.sh
-sudo bash uninstall.sh
-```
-
-The uninstaller:
-- Stops and removes all three systemd services
-- Removes `/opt/mrvpn-manager-panel` (panel files)
-- Removes MasterDnsVPN binary files and exactly `server_config.toml` + `encrypt_key.txt` from `/root` — user-created backup files (`.backup`, `.bak`, etc.) are left untouched
-- Scans for stray files from old install locations (e.g. `/opt/masterdnsvpn`)
-- Restores the `DNSStubListener` setting in `/etc/systemd/resolved.conf`
-- Recommends a reboot to fully apply network changes
 
 ---
 
@@ -63,7 +42,7 @@ After installation, your credentials are printed in a clearly visible block:
 
 ```
 ╔══════════════════════════════════════════════════════╗
-║          ★  SAVE YOUR LOGIN CREDENTIALS  ★          ║
+║              ★  SAVE YOUR LOGIN CREDENTIALS  ★      ║
 ╠══════════════════════════════════════════════════════╣
 ║                                                      ║
 ║  URL  : http://YOUR_SERVER_IP:5000                   ║
@@ -71,7 +50,7 @@ After installation, your credentials are printed in a clearly visible block:
 ║  Pass : xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx             ║
 ║                                                      ║
 ╠══════════════════════════════════════════════════════╣
-║  Password file: /opt/mrvpn-manager-panel/admin_pass.txt
+║  Password file : /opt/mrvpn-manager-panel/admin_pass.txt
 ║                                                      ║
 ║  TO RESET PASSWORD:                                  ║
 ║    nano /opt/mrvpn-manager-panel/admin_pass.txt      ║
@@ -116,7 +95,7 @@ The scheduler lets you define multiple server configs that activate at specific 
 
 ### How it works
 
-A separate systemd service (`mrvpn-config-scheduler`) polls every 30 seconds. When the current `HH:MM` matches a schedule entry for today, it writes the stored TOML to `/root/server_config.toml` and restarts the VPN service. The same schedule won't trigger more than once per minute.
+A separate systemd service (`mrvpn-config-scheduler`) polls every 30 seconds. When the current `HH:MM` matches a schedule entry for today, it writes the stored TOML to `/opt/masterdnsvpn/server_config.toml` and restarts the VPN service. The same schedule won't trigger more than once per minute.
 
 > **Note:** If two schedules share the same time, only the first one in the list fires.
 
@@ -148,7 +127,7 @@ curl -X DELETE http://localhost:5000/api/schedules/<id> \
 ## How It Works
 
 ```
-install.sh   →  sets up everything, handles reinstalls, version switching, and uninstall
+install.sh   →  sets up everything, handles reinstalls and version switching
 systemd      →  keeps panel, VPN, and scheduler alive across reboots and crashes
 web UI       →  monitor server health, edit configs, manage schedules
 scheduler    →  auto-applies timed configs even when the dashboard isn't open
@@ -156,8 +135,7 @@ scheduler    →  auto-applies timed configs even when the dashboard isn't open
 
 | File | Role |
 |------|------|
-| `install.sh` | Installer, version manager, upgrade tool, uninstall trigger |
-| `uninstall.sh` | Standalone uninstaller — removes everything cleanly |
+| `install.sh` | Installer, version manager, upgrade tool |
 | `mrvpn_manager_panel.py` | Main Flask + SocketIO web app |
 | `scheduler.py` | Systemd daemon that auto-applies timed configs |
 | `auth.py` | JWT token creation and verification |
@@ -170,10 +148,8 @@ scheduler    →  auto-applies timed configs even when the dashboard isn't open
 
 ## Installer Smart Behaviours
 
-- **Installs MasterDnsVPN to `/root`** — matches the official installer; the binary expects its config files in the same directory
-- **Detects existing installs** in the current working directory and the previous service's `WorkingDirectory` (covers old `/opt/masterdnsvpn` installs)
-- **Backs up your files** before touching anything — asks per file whether to keep or regenerate
-- **Key generation before config restore** — prevents the April 5 binary from overwriting a restored config during first start
+- **Detects existing installs** in both `/opt/masterdnsvpn` and the current working directory
+- **Backs up your files** before wiping anything — asks per file whether to keep or regenerate
 - **Frees port 53** automatically by disabling the `systemd-resolved` stub listener if needed
 - **Versioned systemd service** — `systemctl status masterdnsvpn` shows which build is running
 - **Reinstall / version swap** — re-run `install.sh` at any time

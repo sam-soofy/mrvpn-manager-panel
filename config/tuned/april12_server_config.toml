@@ -68,8 +68,8 @@ DEFERRED_SESSION_QUEUE_LIMIT = 4096
 
 INVALID_COOKIE_WINDOW_SECONDS = 2.0
 
-# CHANGED: 10 → 8 — less forgiving before escalating to ERROR_DROP.
-INVALID_COOKIE_ERROR_THRESHOLD = 8
+# CHANGED: 10 → 6 — less forgiving before escalating to ERROR_DROP.
+INVALID_COOKIE_ERROR_THRESHOLD = 6
 
 # CHANGED: 300 → 600 — sessions survive longer through disruption windows.
 # Why: Iran's filtering sometimes blocks DNS for 2–5 minutes then resumes.
@@ -84,13 +84,13 @@ CLOSED_SESSION_RETENTION_SECONDS = 1200.0
 # CHANGED: 600 → 1200 — reusable init state valid longer (matches session TTL)
 SESSION_INIT_REUSE_TTL_SECONDS = 1200.0
 
-# CHANGED: 600 → 900 — longer window to reject late SYNs reliably
-RECENTLY_CLOSED_STREAM_TTL_SECONDS = 900.0
+# CHANGED: 600
+RECENTLY_CLOSED_STREAM_TTL_SECONDS = 600.0
 
-# CHANGED: 2000 → 6000 — larger table to track more closed streams.
+# CHANGED: 2000 → 4000 — larger table to track more closed streams.
 # Why: With more active streams (higher concurrency), we need a bigger
 #      "recently closed" set to avoid falsely reviving dead streams.
-RECENTLY_CLOSED_STREAM_CAP = 6000
+RECENTLY_CLOSED_STREAM_CAP = 4000
 
 TERMINAL_STREAM_RETENTION_SECONDS = 45.0
 
@@ -153,8 +153,8 @@ ENCRYPTION_KEY_FILE = "encrypt_key.txt"
 #   - CONTROL_DUPLICATION should be > 1 so SYN-ACK/CLOSE survive lossy paths.
 # ------------------------------------------------------------------------------
 
-# CHANGED: 5 → 24 — pack more control blocks per response to reduce round-trips
-MAX_PACKETS_PER_BATCH = 24
+# CHANGED: 5 → 36 — pack more control blocks per response to reduce round-trips
+MAX_PACKETS_PER_BATCH = 36
 
 # CHANGED: 1 → 3 — repeat the last control block response 3 dispatcher turns.
 # Why: On lossy Iran DNS paths, a CLOSE or SYN-ACK that disappears once often
@@ -166,51 +166,30 @@ STREAM_RESULT_PACKET_TTL_SECONDS = 150.0
 STREAM_FAILURE_PACKET_TTL_SECONDS = 60.0
 
 
-# CHANGED: 800 → 2800 — larger window = more unacked packets in flight (server serves multiple users).
-# Why: DNS round-trip on a tunnel can be 200–500ms. A bigger window
-#      keeps the pipe full instead of stalling to wait for each ACK.
-ARQ_WINDOW_SIZE = 1600
-
-# CHANGED: 1.0 → 0.6s — retransmit twice as fast on first miss.
-# Why: Iran's filtering often drops single packets but passes retransmits.
-#      Waiting 1 second before retrying wastes throughput unnecessarily.
-ARQ_INITIAL_RTO_SECONDS = 0.6
-
-# CHANGED: 5.0 → 2.5 — cap backoff sooner, don't let one loss stall for 5s.
-ARQ_MAX_RTO_SECONDS = 2.5
-
-# CHANGED: 0.5 → 0.3s — control packets (SYN/FIN/RST) retry faster
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.3
-
-# CHANGED: 3.0 → 2.0 — control backoff cap
-ARQ_CONTROL_MAX_RTO_SECONDS = 2.0
-
-# CHANGED: 150 → 400 — more control retries before giving up on a handshake
-ARQ_MAX_CONTROL_RETRIES = 400
-
-# CHANGED: 1800 → 2400 — inactivity timeout matches extended session TTL
-ARQ_INACTIVITY_TIMEOUT_SECONDS = 2800.0
-
+# ARQ timing / retry profile.
+ARQ_WINDOW_SIZE = 1200
+ARQ_INITIAL_RTO_SECONDS = 0.5
+ARQ_MAX_RTO_SECONDS = 1.7
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.4
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.6
+ARQ_MAX_CONTROL_RETRIES = 250
+ARQ_INACTIVITY_TIMEOUT_SECONDS = 1800.0
 ARQ_DATA_PACKET_TTL_SECONDS = 2400.0
 ARQ_CONTROL_PACKET_TTL_SECONDS = 1200.0
+ARQ_MAX_DATA_RETRIES = 500
 
-# CHANGED: 400 → 1200 — data packets get more retries before being abandoned
-ARQ_MAX_DATA_RETRIES = 1200
-
-# CHANGED: 16 → 48 — allow NACK to trigger on slightly larger gaps.
-# Why: Higher gap tolerance means the server requests missing out-of-order
-#      packets more eagerly, which helps when selective drops happen.
-#      and client max arq data gap is 32 so I did a 32 * 2 = 64 math which I'm not sure fully to be right, but it works :)
+# Maximum out-of-order gap ahead of rcvNxt that can trigger STREAM_DATA_NACK.
+# 0 disables NACK generation entirely.
+# Keep this small so only near-miss gaps cause early resend requests.
 ARQ_DATA_NACK_MAX_GAP = 48
 
-# CHANGED: 0.3 → 0.2s — send first NACK sooner after detecting a gap
-ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.2
+# Minimum seconds between repeated NACKs for the same missing sequence number.
+# Clamped to [0.1s, 30s].
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.3
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
 
-# CHANGED: 1.0 → 0.6s — repeat NACKs twice as often to chase lost packets
-ARQ_DATA_NACK_REPEAT_SECONDS = 0.5
-
-ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 120.0
-ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 90.0
+ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 90.0
+ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 60.0
 
 # ------------------------------------------------------------------------------
 # 8.0) Server-Side Session/Stream Limits
@@ -239,7 +218,7 @@ MAX_ALLOWED_CLIENT_RX_TX_WORKERS = 8
 
 MIN_ALLOWED_CLIENT_PING_AGGRESSIVE_INTERVAL_SECONDS = 0.10
 
-MAX_ALLOWED_CLIENT_PACKETS_PER_BATCH = 36
+MAX_ALLOWED_CLIENT_PACKETS_PER_BATCH = 48
 
 # CHANGED: 800 → 12000 — allow well-resourced clients to open bigger windows
 MAX_ALLOWED_CLIENT_ARQ_WINDOW_SIZE = 1400
