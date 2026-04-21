@@ -16,3 +16,8 @@ def login_page():
 @views_bp.route("/static/js/<path:filename>")
 def serve_js(filename: str):
     return send_from_directory("static/js", filename)
+
+
+@views_bp.route("/static/css/<path:filename>")
+def serve_css(filename: str):
+    return send_from_directory(".", filename)
