@@ -1,7 +1,14 @@
 from flask import Blueprint, jsonify, request
 
 from modules.auth import require_auth
-from modules.config_editor import read_config, read_key, write_config, write_key
+from modules.config_editor import (
+    read_client_config,
+    read_config,
+    read_installed_version,
+    read_key,
+    write_config,
+    write_key,
+)
 
 config_bp = Blueprint("config", __name__)
 
@@ -34,3 +41,16 @@ def config_key():
 
     success = write_key(data.get("content", ""), confirmed=True)
     return jsonify({"ok": success, "message": "Saved and restarted" if success else "Failed"})
+
+
+@config_bp.route("/api/config/client", methods=["GET"])
+@require_auth
+def config_client():
+    """Return the version-appropriate client config with the live domain injected."""
+    version = read_installed_version()
+    content = read_client_config()
+    return jsonify({
+        "content": content,
+        "version": version,
+        "available": bool(content),
+    })

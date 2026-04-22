@@ -630,6 +630,8 @@ UNIT
   sleep 3
   systemctl restart "${MASTER_SERVICE}"
   echo "[✓] MasterDnsVPN (${VERSION}) installed and started"
+  # Persist installed version so the panel can auto-select the right client config
+  [[ -d "$PANEL_DIR" ]] && echo "$VERSION" > "${PANEL_DIR}/installed_version.txt" || true
 fi
 
 # ── Final output ──────────────────────────────────────────────────────────────

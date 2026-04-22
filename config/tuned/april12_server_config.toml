@@ -28,11 +28,11 @@ UDP_PORT = 53
 
 # Internally Smart-Sized
 # CHANGED: 4 → 8 (2 cores × 4 reader threads per core)
-UDP_READERS = 4
+UDP_READERS = 8
 
 # Internally Smart-Sized
-# CHANGED: 8 → 16 (matches doubled reader throughput)
-DNS_REQUEST_WORKERS = 8
+# CHANGED: 8 → 12 (more than reader throughput)
+DNS_REQUEST_WORKERS = 12
 
 # Internally Smart-Sized
 MAX_CONCURRENT_REQUESTS = 16384
@@ -53,11 +53,11 @@ DROP_LOG_INTERVAL_SECONDS = 2.0
 
 # Internally Smart-Sized
 # CHANGED: 4 → 8
-DEFERRED_SESSION_WORKERS = 4
+DEFERRED_SESSION_WORKERS = 8
 
 # Internally Smart-Sized
-# CHANGED: 4096 → 16384 (RAM is available; don't drop deferred work under load)
-DEFERRED_SESSION_QUEUE_LIMIT = 4096
+# CHANGED: 4096 → 8192
+DEFERRED_SESSION_QUEUE_LIMIT = 8192
 
 # ------------------------------------------------------------------------------
 # 4) Session Lifecycle & Invalid-Cookie Handling
@@ -110,13 +110,13 @@ DNS_UPSTREAM_TIMEOUT = 3.0
 
 DNS_INFLIGHT_WAIT_TIMEOUT_SECONDS = 12.0
 
-DNS_FRAGMENT_ASSEMBLY_TIMEOUT = 180.0
+DNS_FRAGMENT_ASSEMBLY_TIMEOUT = 18.0
 
 # Internally Smart-Sized
 # At ~200 bytes average per record, 200k records ≈ ~40MB — trivial on 4GB.
-DNS_CACHE_MAX_RECORDS = 50000
+DNS_CACHE_MAX_RECORDS = 200000
 
-DNS_CACHE_TTL_SECONDS = 300.0
+DNS_CACHE_TTL_SECONDS = 600.0
 
 # ------------------------------------------------------------------------------
 # 6) Upstream SOCKS / Forwarding
@@ -154,7 +154,7 @@ ENCRYPTION_KEY_FILE = "encrypt_key.txt"
 # ------------------------------------------------------------------------------
 
 # CHANGED: 5 → 36 — pack more control blocks per response to reduce round-trips
-MAX_PACKETS_PER_BATCH = 36
+MAX_PACKETS_PER_BATCH = 6
 
 # CHANGED: 1 → 3 — repeat the last control block response 3 dispatcher turns.
 # Why: On lossy Iran DNS paths, a CLOSE or SYN-ACK that disappears once often
@@ -167,26 +167,26 @@ STREAM_FAILURE_PACKET_TTL_SECONDS = 60.0
 
 
 # ARQ timing / retry profile.
-ARQ_WINDOW_SIZE = 1200
-ARQ_INITIAL_RTO_SECONDS = 0.5
-ARQ_MAX_RTO_SECONDS = 1.7
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.4
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.6
-ARQ_MAX_CONTROL_RETRIES = 250
+ARQ_WINDOW_SIZE = 120
+ARQ_INITIAL_RTO_SECONDS = 0.2
+ARQ_MAX_RTO_SECONDS = 0.9
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.3
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.0
+ARQ_MAX_CONTROL_RETRIES = 20
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 1800.0
 ARQ_DATA_PACKET_TTL_SECONDS = 2400.0
 ARQ_CONTROL_PACKET_TTL_SECONDS = 1200.0
-ARQ_MAX_DATA_RETRIES = 500
+ARQ_MAX_DATA_RETRIES = 40
 
 # Maximum out-of-order gap ahead of rcvNxt that can trigger STREAM_DATA_NACK.
 # 0 disables NACK generation entirely.
 # Keep this small so only near-miss gaps cause early resend requests.
-ARQ_DATA_NACK_MAX_GAP = 48
+ARQ_DATA_NACK_MAX_GAP = 6
 
 # Minimum seconds between repeated NACKs for the same missing sequence number.
 # Clamped to [0.1s, 30s].
-ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.3
-ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.2
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.4
 
 ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 90.0
 ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 60.0
@@ -212,18 +212,18 @@ MAX_ALLOWED_CLIENT_SETUP_PACKET_DUPLICATION_COUNT = 5
 # CHANGED: 150 → 160 — allow clients to probe slightly larger upload payloads
 MAX_ALLOWED_CLIENT_UPLOAD_MTU = 160
 
-MAX_ALLOWED_CLIENT_DOWNLOAD_MTU = 4000
+MAX_ALLOWED_CLIENT_DOWNLOAD_MTU = 1232
 
 MAX_ALLOWED_CLIENT_RX_TX_WORKERS = 8
 
 MIN_ALLOWED_CLIENT_PING_AGGRESSIVE_INTERVAL_SECONDS = 0.10
 
-MAX_ALLOWED_CLIENT_PACKETS_PER_BATCH = 48
+MAX_ALLOWED_CLIENT_PACKETS_PER_BATCH = 6
 
-# CHANGED: 800 → 12000 — allow well-resourced clients to open bigger windows
-MAX_ALLOWED_CLIENT_ARQ_WINDOW_SIZE = 1400
 
-MAX_ALLOWED_CLIENT_ARQ_DATA_NACK_MAX_GAP = 64
+MAX_ALLOWED_CLIENT_ARQ_WINDOW_SIZE = 40
+
+MAX_ALLOWED_CLIENT_ARQ_DATA_NACK_MAX_GAP = 8
 
 MIN_ALLOWED_CLIENT_COMPRESSION_MIN_SIZE = 150
 

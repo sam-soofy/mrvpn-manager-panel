@@ -73,7 +73,7 @@
   <!-- Chart -->
   <div class="card">
     <div class="card-title">CPU & RAM over time</div>
-    <canvas id="chart"></canvas>
+    <canvas id="chart" style="max-height:200px;"></canvas>
   </div>
 
   <!-- Actions -->
@@ -83,6 +83,7 @@
       <button class="btn btn-danger"  onclick="restartVPN()">⟳ Restart MasterDnsVPN</button>
       <button class="btn btn-neutral" onclick="openConfigEditor('server')">✎ Edit server_config.toml</button>
       <button class="btn btn-neutral" onclick="openConfigEditor('key')">🔑 Edit encrypt_key.txt</button>
+      <button class="btn btn-neutral" onclick="openClientConfigEditor()">⬇ Edit &amp; Download Client Config</button>
     </div>
   </div>
 
@@ -113,7 +114,8 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost"   onclick="closeModal('cfg-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveConfig()">Save & Restart VPN</button>
+      <button class="btn btn-primary" id="cfg-save-btn"     onclick="saveConfig()">Save &amp; Restart VPN</button>
+      <button class="btn btn-primary" id="cfg-download-btn" onclick="downloadClientConfig()" style="display:none;">⬇ Download client_config.toml</button>
     </div>
   </div>
 </div>

@@ -46,7 +46,7 @@ UDP_PORT = 53
 
 # Number of UDP reader goroutines.
 # If <= 0, code falls back to an auto default.
-UDP_READERS = 12
+UDP_READERS = 8
 
 # Number of DNS request workers that process incoming packets.
 # If <= 0, code falls back to an auto default.
@@ -76,12 +76,12 @@ DROP_LOG_INTERVAL_SECONDS = 2.0
 
 # Worker count for deferred per-session processing.
 # These workers serialize heavy or ordering-sensitive tasks behind session keys.
-DEFERRED_SESSION_WORKERS = 12
+DEFERRED_SESSION_WORKERS = 8
 
 # Queue limit for deferred per-session work.
 # Keep this a bit higher than the client-side setup pressure so bursty SYN/SOCKS/DNS
 # setup traffic is less likely to be dropped during short spikes.
-DEFERRED_SESSION_QUEUE_LIMIT = 6144
+DEFERRED_SESSION_QUEUE_LIMIT = 8192
 
 # Initial queue / store capacities.
 SESSION_ORPHAN_QUEUE_INITIAL_CAPACITY = 128
@@ -147,10 +147,10 @@ DNS_UPSTREAM_TIMEOUT = 3.0
 DNS_INFLIGHT_WAIT_TIMEOUT_SECONDS = 12.0
 
 # Fragment assembly timeout for inbound DNS query fragments.
-DNS_FRAGMENT_ASSEMBLY_TIMEOUT = 180.0
+DNS_FRAGMENT_ASSEMBLY_TIMEOUT = 18.0
 
 # In-memory tunnel DNS cache sizing.
-DNS_CACHE_MAX_RECORDS = 100000
+DNS_CACHE_MAX_RECORDS = 200000
 DNS_CACHE_TTL_SECONDS = 600.0
 
 # ------------------------------------------------------------------------------
@@ -222,7 +222,7 @@ ENCRYPTION_KEY_FILE = "encrypt_key.txt"
 # Maximum packable control blocks emitted in one response.
 # Keep this aligned with the client sample unless you intentionally want larger
 # packed bursts from the server.
-MAX_PACKETS_PER_BATCH = 36
+MAX_PACKETS_PER_BATCH = 6
 
 # Duplicate the last packed control-block response this many dispatcher turns.
 # 1 = disabled.
@@ -231,31 +231,31 @@ MAX_PACKETS_PER_BATCH = 36
 PACKET_BLOCK_CONTROL_DUPLICATION = 2
 
 # TTLs for control packets sent during stream setup/result paths.
-STREAM_SETUP_ACK_TTL_SECONDS = 400.0
-STREAM_RESULT_PACKET_TTL_SECONDS = 300.0
-STREAM_FAILURE_PACKET_TTL_SECONDS = 120.0
+STREAM_SETUP_ACK_TTL_SECONDS = 200.0
+STREAM_RESULT_PACKET_TTL_SECONDS = 150.0
+STREAM_FAILURE_PACKET_TTL_SECONDS = 60.0
 
 # ARQ timing / retry profile.
-ARQ_WINDOW_SIZE = 1200
-ARQ_INITIAL_RTO_SECONDS = 0.5
-ARQ_MAX_RTO_SECONDS = 1.7
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.4
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.6
-ARQ_MAX_CONTROL_RETRIES = 250
+ARQ_WINDOW_SIZE = 120
+ARQ_INITIAL_RTO_SECONDS = 0.2
+ARQ_MAX_RTO_SECONDS = 0.9
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.3
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.0
+ARQ_MAX_CONTROL_RETRIES = 20
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 1800.0
 ARQ_DATA_PACKET_TTL_SECONDS = 2400.0
 ARQ_CONTROL_PACKET_TTL_SECONDS = 1200.0
-ARQ_MAX_DATA_RETRIES = 500
+ARQ_MAX_DATA_RETRIES = 40
 
 # Maximum out-of-order gap ahead of rcvNxt that can trigger STREAM_DATA_NACK.
 # 0 disables NACK generation entirely.
 # Keep this small so only near-miss gaps cause early resend requests.
-ARQ_DATA_NACK_MAX_GAP = 48
+ARQ_DATA_NACK_MAX_GAP = 6
 
 # Minimum seconds between repeated NACKs for the same missing sequence number.
 # Clamped to [0.1s, 30s].
-ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.3
-ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.2
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.4
 
 ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 90.0
 ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 60.0

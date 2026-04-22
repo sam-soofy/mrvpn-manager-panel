@@ -1,17 +1,35 @@
 // ═══════════════════════════════════════════════════
-//  config-editor.js — config + key editor modal
+//  config-editor.js — config + key + client editor modal
 //  Depends on: utils.js (apiFetch, openModal, closeModal, showToast)
 // ═══════════════════════════════════════════════════
 
 console.log("[MRVPN] config-editor.js loaded");
 
-let currentConfigType = ""; // "server" | "key"
+// "server" | "key" | "client"
+let currentConfigType = "";
 
+// ── Modal mode helpers ────────────────────────────────
+// Server/key mode: show Save button, hide Download button.
+// Client mode:     hide Save button, show Download button.
+function _setModalMode(type) {
+  const saveBtn     = document.getElementById("cfg-save-btn");
+  const downloadBtn = document.getElementById("cfg-download-btn");
+  if (type === "client") {
+    saveBtn.style.display     = "none";
+    downloadBtn.style.display = "";
+  } else {
+    saveBtn.style.display     = "";
+    downloadBtn.style.display = "none";
+  }
+}
+
+// ── Open server / key editor ──────────────────────────
 async function openConfigEditor(type) {
   currentConfigType = type;
   const label = type === "server" ? "server_config.toml" : "encrypt_key.txt";
   console.log("[MRVPN] openConfigEditor:", label);
   document.getElementById("cfg-modal-title").textContent = `Edit ${label}`;
+  _setModalMode(type);
 
   try {
     const res  = await apiFetch(`/api/config/${type}`);
@@ -25,7 +43,64 @@ async function openConfigEditor(type) {
   }
 }
 
+// ── Open client config editor ─────────────────────────
+async function openClientConfigEditor() {
+  currentConfigType = "client";
+  console.log("[MRVPN] openClientConfigEditor: fetching /api/config/client");
+  document.getElementById("cfg-modal-title").textContent = "Edit & Download Client Config";
+  _setModalMode("client");
+
+  try {
+    const res  = await apiFetch("/api/config/client");
+    const data = await res.json();
+
+    if (!data.available) {
+      showToast("No client config available — is MasterDnsVPN installed?", "error");
+      return;
+    }
+
+    const versionLabel = data.version === "april5" ? "April 5" : data.version === "april12" ? "April 12" : data.version;
+    document.getElementById("cfg-modal-title").textContent =
+      `Edit & Download Client Config (${versionLabel} build)`;
+
+    document.getElementById("cfg-textarea").value = data.content || "";
+    openModal("cfg-modal");
+    console.log("[MRVPN] openClientConfigEditor: loaded", (data.content || "").length, "chars, version:", data.version);
+  } catch (err) {
+    console.error("[MRVPN] openClientConfigEditor error:", err.message);
+    showToast("Failed to load client config: " + err.message, "error");
+  }
+}
+
+// ── Download client config from textarea content ──────
+// No round-trip needed — we create a Blob from the textarea content directly.
+function downloadClientConfig() {
+  const content = document.getElementById("cfg-textarea").value;
+  if (!content.trim()) {
+    showToast("Nothing to download — editor is empty", "error");
+    return;
+  }
+  const blob = new Blob([content], { type: "text/plain" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "client_config.toml";   // always this name, regardless of version
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  console.log("[MRVPN] downloadClientConfig: triggered download");
+  showToast("client_config.toml downloaded ✓", "success");
+}
+
+// ── Save server / key config ──────────────────────────
 async function saveConfig() {
+  // Client config is read-only server-side — download only.
+  if (currentConfigType === "client") {
+    downloadClientConfig();
+    return;
+  }
+
   const content = document.getElementById("cfg-textarea").value;
   console.log("[MRVPN] saveConfig: type=%s length=%d", currentConfigType, content.length);
 
@@ -57,7 +132,7 @@ async function saveConfig() {
 
     if (d2.ok) {
       closeModal("cfg-modal");
-      showToast("Saved and MasterDnsVPN restarted ✓", "success");
+      showToast("Saved — MasterDnsVPN restarting in ~2s ✓", "success");
     } else {
       showToast("Save failed: " + (d2.message || "unknown error"), "error");
     }
