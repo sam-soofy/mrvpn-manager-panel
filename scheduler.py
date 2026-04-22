@@ -20,7 +20,7 @@ from pathlib import Path
 
 PANEL_DIR = Path("/opt/mrvpn-manager-panel")
 SCHEDULES_FILE = PANEL_DIR / "schedules.json"
-SERVER_CFG = Path("/opt/masterdnsvpn/server_config.toml")
+SERVER_CFG = Path("/root/server_config.toml")
 
 # Maps the 3-letter day names used in schedules.json → Python weekday() integers
 # Monday=0 … Sunday=6

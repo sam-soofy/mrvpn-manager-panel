@@ -264,3 +264,5 @@ main {
 #toast.success { border-left: 4px solid var(--green); }
 #toast.error   { border-left: 4px solid var(--red); }
 #toast.show    { display: block; }
+#chart { max-height: 220px; }
+
