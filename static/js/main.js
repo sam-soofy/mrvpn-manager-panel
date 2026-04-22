@@ -10,10 +10,13 @@ async function restartVPN() {
   if (!confirm("Restart MasterDnsVPN now?")) return;
   console.log("[MRVPN] restartVPN: sending POST /api/restart");
   try {
-    const res  = await apiFetch("/api/restart", { method: "POST" });
+    const res = await apiFetch("/api/restart", { method: "POST" });
     const data = await res.json();
     console.log("[MRVPN] restartVPN: response:", data);
-    showToast(data.ok ? "Restart command sent ✓" : "Restart failed", data.ok ? "success" : "error");
+    showToast(
+      data.ok ? "Restart command sent ✓" : "Restart failed",
+      data.ok ? "success" : "error",
+    );
   } catch (err) {
     console.error("[MRVPN] restartVPN error:", err.message);
     showToast("Restart failed: " + err.message, "error");
@@ -21,7 +24,7 @@ async function restartVPN() {
 }
 
 // ── Close modals on overlay click ─────────────────────
-document.querySelectorAll(".modal-overlay").forEach(overlay => {
+document.querySelectorAll(".modal-overlay").forEach((overlay) => {
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) overlay.classList.remove("open");
   });
@@ -39,8 +42,8 @@ document.querySelectorAll(".modal-overlay").forEach(overlay => {
 
   console.log("[MRVPN] init: auth OK — revealing dashboard");
   document.getElementById("auth-loading").style.display = "none";
-  document.getElementById("page-header").style.display  = "";
-  document.getElementById("page-main").style.display    = "";
+  document.getElementById("page-header").style.display = "flex"; // header { display: flex }
+  document.getElementById("page-main").style.display = "grid"; // main { display: grid }
 
   console.log("[MRVPN] init: initialising chart");
   initChart();

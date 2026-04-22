@@ -20,4 +20,4 @@ def serve_js(filename: str):
 
 @views_bp.route("/static/css/<path:filename>")
 def serve_css(filename: str):
-    return send_from_directory(".", filename)
+    return send_from_directory("static/css", filename)
