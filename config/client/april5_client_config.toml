@@ -29,7 +29,7 @@ DATA_ENCRYPTION_METHOD = 1
 # Shared encryption key.
 # Required on the client.
 # Must match the server-side key file contents.
-ENCRYPTION_KEY = "smoke-test-key-1234"
+ENCRYPTION_KEY = "{{ENC_KEY}}"
 
 # ------------------------------------------------------------------------------
 # 2) Local Proxy Listener

@@ -6,10 +6,10 @@ from pathlib import Path
 # MasterDnsVPN files live in /root (matches official installer & our install.sh)
 MASTER_DIR = Path("/root")
 SERVER_CFG = MASTER_DIR / "server_config.toml"
-KEY_FILE   = MASTER_DIR / "encrypt_key.txt"
+KEY_FILE = MASTER_DIR / "encrypt_key.txt"
 
-_PROJECT_ROOT   = Path(__file__).resolve().parent.parent
-_VERSION_FILE   = _PROJECT_ROOT / "installed_version.txt"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_VERSION_FILE = _PROJECT_ROOT / "installed_version.txt"
 _CLIENT_CFG_DIR = _PROJECT_ROOT / "config" / "client"
 
 # Maps CONFIG_VERSION values found in server_config.toml → our version strings.
@@ -17,6 +17,7 @@ _CONFIG_VERSION_MAP = {"10": "april5", "12": "april12"}
 
 
 # ── Version ────────────────────────────────────────────────────────────────────
+
 
 def _detect_version_from_config() -> str:
     """Fallback: read CONFIG_VERSION from the live server_config.toml.
@@ -59,6 +60,7 @@ def read_installed_version() -> str:
 
 # ── Server config ──────────────────────────────────────────────────────────────
 
+
 def read_config() -> str:
     return SERVER_CFG.read_text(encoding="utf-8") if SERVER_CFG.exists() else ""
 
@@ -68,6 +70,7 @@ def read_key() -> str:
 
 
 # ── Client config ──────────────────────────────────────────────────────────────
+
 
 def _extract_domain() -> str:
     """Parse DOMAIN from the live server_config.toml.
@@ -93,23 +96,30 @@ def read_client_config() -> str:
     domain = _extract_domain()
     if domain:
         content = content.replace("{{DOMAIN}}", domain)
+    encryption_key = read_key()
+    if encryption_key:
+        content = content.replace("{{ENC_KEY}}", encryption_key)
     return content
 
 
 # ── Delayed restart helper ─────────────────────────────────────────────────────
 
+
 def _delayed_restart(seconds: float = 2.0) -> None:
     """Restart masterdnsvpn after a short delay so the HTTP response
     reaches the browser before the service bounces."""
+
     def _run():
         time.sleep(seconds)
         from .service_manager import restart_masterdnsvpn
+
         restart_masterdnsvpn()
 
     threading.Thread(target=_run, daemon=True).start()
 
 
 # ── Write helpers ──────────────────────────────────────────────────────────────
+
 
 def write_config(content: str, confirmed: bool = False) -> bool:
     if not confirmed:
