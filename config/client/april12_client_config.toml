@@ -13,7 +13,7 @@
 # Must match your server's DOMAIN value in server_config.toml
 # ------------------------------------------------------------------------------
 
-SERVER_DOMAIN = "{{DOMAIN}}"
+DOMAINS = ["{{DOMAIN}}"]
 
 # Encryption method for tunnel payloads.
 # Allowed values:
