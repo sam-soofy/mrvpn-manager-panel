@@ -12,12 +12,49 @@ _PROJECT_ROOT   = Path(__file__).resolve().parent.parent
 _VERSION_FILE   = _PROJECT_ROOT / "installed_version.txt"
 _CLIENT_CFG_DIR = _PROJECT_ROOT / "config" / "client"
 
+# Maps CONFIG_VERSION values found in server_config.toml → our version strings.
+_CONFIG_VERSION_MAP = {"10": "april5", "12": "april12"}
+
 
 # ── Version ────────────────────────────────────────────────────────────────────
 
+def _detect_version_from_config() -> str:
+    """Fallback: read CONFIG_VERSION from the live server_config.toml.
+
+    April 5 build ships with CONFIG_VERSION = "10"
+    April 12 build ships with CONFIG_VERSION = "12"
+    Returns 'april5', 'april12', or '' on failure.
+    """
+    try:
+        content = SERVER_CFG.read_text(encoding="utf-8")
+        m = re.search(r'^CONFIG_VERSION\s*=\s*"(\d+)"', content, re.MULTILINE)
+        if not m:
+            return ""
+        return _CONFIG_VERSION_MAP.get(m.group(1), "")
+    except Exception:
+        return ""
+
+
 def read_installed_version() -> str:
-    """Returns 'april5', 'april12', or '' if not set yet."""
-    return _VERSION_FILE.read_text(encoding="utf-8").strip() if _VERSION_FILE.exists() else ""
+    """Return 'april5', 'april12', or '' if version cannot be determined.
+
+    Primary source: installed_version.txt written by install.sh.
+    Fallback: CONFIG_VERSION field in live server_config.toml.
+    When fallback succeeds the result is persisted so subsequent calls are fast.
+    """
+    if _VERSION_FILE.exists():
+        v = _VERSION_FILE.read_text(encoding="utf-8").strip()
+        if v:
+            return v
+
+    # Fallback — detect from the running config and persist it
+    v = _detect_version_from_config()
+    if v:
+        try:
+            _VERSION_FILE.write_text(v, encoding="utf-8")
+        except Exception:
+            pass  # best-effort; not fatal
+    return v
 
 
 # ── Server config ──────────────────────────────────────────────────────────────
