@@ -19,10 +19,14 @@ function _setModalMode(type) {
     saveBtn.style.display = "";
     saveRestartBtn.style.display = "None";
     downloadBtn.style.display = "";
-  } else {
+  } else if (type === "server") {
     saveBtn.style.display = "None";
     saveRestartBtn.style.display = "";
-    downloadBtn.style.display = "none";
+    downloadBtn.style.display = "";
+  } else if (type === "key") {
+    saveBtn.style.display = "None";
+    saveRestartBtn.style.display = "";
+    downloadBtn.style.display = "";
   }
 }
 
