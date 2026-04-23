@@ -66,7 +66,8 @@ def read_config() -> str:
 
 
 def read_key() -> str:
-    return KEY_FILE.read_text(encoding="utf-8") if KEY_FILE.exists() else ""
+    key = KEY_FILE.read_text(encoding="utf-8") if KEY_FILE.exists() else ""
+    return key.strip()
 
 
 # ── Client config ──────────────────────────────────────────────────────────────
@@ -79,7 +80,8 @@ def _extract_domain() -> str:
     try:
         content = SERVER_CFG.read_text(encoding="utf-8")
         m = re.search(r'DOMAIN\s*=\s*\[\s*"([^"]+)"', content)
-        return m.group(1) if m else ""
+        domain = m.group(1) if m else ""
+        return domain.strip()
     except Exception:
         return ""
 
