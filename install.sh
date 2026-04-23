@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# MRVPN Manager Panel + MasterDnsVPN Installer (v7)
+# MRVPN Manager Panel + MasterDnsVPN Installer (v8)
 #
 # Key conventions (learned from official MasterDnsVPN installers):
 #   - MasterDnsVPN installs to /root  (binary, server_config.toml, encrypt_key.txt)
@@ -10,6 +10,13 @@
 #   - April 12 service:  ExecStart must include -nowait flag
 #   - DNS: always add DNS=8.8.8.8 to resolved.conf when disabling stub listener,
 #          so the system has an upstream even if DHCP provides none
+#
+# v8 changes:
+#   - Panel updates now always pull from "main" branch only (never "dev").
+#   - git pull --ff-only replaced with fetch + reset --hard origin/main.
+#   - User-modified tracked files (e.g. client config templates edited via the
+#     dashboard) are backed up before the hard reset and restored after it, so
+#     user edits survive panel updates.
 # =============================================================================
 set -euo pipefail
 IFS=$'\n\t'
@@ -242,6 +249,71 @@ get_service_workdir() {
   [[ -f "$svc_file" ]] && grep -E "^WorkingDirectory=" "$svc_file" | cut -d= -f2- | tr -d ' '
 }
 
+# ── Safe panel repo update (always from main) ──────────────────────────────────
+#
+# Why not "git pull --ff-only":
+#   The repo now has a "dev" branch. git pull on an existing clone may try to
+#   merge dev into the local HEAD, or fail because user-modified tracked files
+#   (e.g. client config templates edited via the dashboard) would be overwritten.
+#
+# Strategy:
+#   1. fetch only origin/main — never touches dev
+#   2. back up any locally-modified tracked files to /tmp
+#   3. git reset --hard origin/main — force local to match main exactly
+#   4. restore the backed-up files so user edits survive the update
+#
+# Which files get modified at runtime?
+#   config_editor.py writes user edits back to:
+#     config/client/april5_client_config.toml
+#     config/client/april12_client_config.toml
+#   These are tracked by git, so without this backup/restore step the reset
+#   would silently discard whatever the user saved from the dashboard.
+#
+update_panel_from_main() {
+  local dir="$1"
+
+  echo "[*] Fetching origin/main..."
+  git -C "$dir" fetch origin main
+
+  # Detect locally-modified tracked files
+  local modified
+  modified=$(git -C "$dir" diff --name-only 2>/dev/null || true)
+
+  # Back up each modified file to /tmp before the hard reset
+  declare -A _file_backups=()
+  if [[ -n "$modified" ]]; then
+    echo "[*] Backing up locally-modified tracked files before update:"
+    while IFS= read -r rel_path; do
+      [[ -z "$rel_path" ]] && continue
+      local abs_path="${dir}/${rel_path}"
+      local bak="/tmp/mrvpn_panel_${RUN_ID}_$(echo "$rel_path" | tr '/' '_')"
+      if cp "$abs_path" "$bak" 2>/dev/null; then
+        _file_backups["$rel_path"]="$bak"
+        echo "    backed up: ${rel_path}"
+      fi
+    done <<< "$modified"
+  fi
+
+  # Ensure we are on main, then hard-reset to match origin/main exactly.
+  # This discards any uncommitted local changes (our files are already backed up).
+  git -C "$dir" checkout main 2>/dev/null || git -C "$dir" checkout -b main origin/main
+  git -C "$dir" reset --hard origin/main
+  echo "[✓] Panel code updated to origin/main"
+
+  # Restore the backed-up user files
+  if [[ ${#_file_backups[@]} -gt 0 ]]; then
+    echo "[*] Restoring user-modified files:"
+    for rel_path in "${!_file_backups[@]}"; do
+      local bak="${_file_backups[$rel_path]}"
+      local abs_path="${dir}/${rel_path}"
+      if cp "$bak" "$abs_path" 2>/dev/null; then
+        echo "    restored: ${rel_path}"
+      fi
+      rm -f "$bak"
+    done
+  fi
+}
+
 # ── Port 53 management ────────────────────────────────────────────────────────
 # Mirrors official installer logic: proper teardown of DNS services + stub listener.
 
@@ -314,7 +386,6 @@ free_port53() {
     fi
 
     # Ensure an upstream DNS is configured so the system stays online.
-    # (Official installer always does this step too.)
     if ! grep -q '^DNS=' /etc/systemd/resolved.conf 2>/dev/null; then
       echo 'DNS=8.8.8.8 1.1.1.1' >> /etc/systemd/resolved.conf
       echo "[*] Added DNS=8.8.8.8 1.1.1.1 to resolved.conf as upstream fallback"
@@ -484,11 +555,11 @@ if [[ "$DO_PANEL" == "y" ]]; then
   echo "[*] ── Panel ──────────────────────────────"
   mkdir -p "$PANEL_DIR"
   if [[ -d "${PANEL_DIR}/.git" ]]; then
-    echo "[*] Updating panel"
-    git -C "$PANEL_DIR" pull --ff-only
+    echo "[*] Updating panel (main branch only)"
+    update_panel_from_main "$PANEL_DIR"
   else
     echo "[*] Cloning panel"
-    git clone "$REPO_URL" "$PANEL_DIR"
+    git clone --branch main "$REPO_URL" "$PANEL_DIR"
   fi
   cd "$PANEL_DIR"
   ensure_python3_venv
@@ -572,11 +643,11 @@ if [[ "$DO_MASTER" == "y" ]]; then
     echo "[*] Bundled zip not found; fetching panel repo..."
     mkdir -p "$PANEL_DIR"
     if [[ -d "${PANEL_DIR}/.git" ]]; then
-      git -C "$PANEL_DIR" pull --ff-only
+      update_panel_from_main "$PANEL_DIR"
     else
       [[ -n "$(ls -A "$PANEL_DIR" 2>/dev/null || true)" ]] \
         && { echo "[!] ${PANEL_DIR} exists but is not a git repo"; exit 1; }
-      git clone "$REPO_URL" "$PANEL_DIR"
+      git clone --branch main "$REPO_URL" "$PANEL_DIR"
     fi
   fi
   [[ -f "$BUNDLED_ZIP" ]] || { echo "[!] Bundled zip missing: ${BUNDLED_ZIP}"; exit 1; }
