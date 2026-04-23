@@ -8,7 +8,7 @@ A lightweight web panel to install, manage, and monitor servers running [MasterD
 
 ## What It Does
 
-- **JWT-based authentication** — stateless, no sessions
+- **JWT-based authentication** — stateless, easy and secure
 - **Version-aware installer** — choose between April 5 and April 12 builds
 - **Automatic domain injection** — tuned configs with your domain baked in
 - **Web dashboard** — real-time CPU, RAM, disk, and network stats via WebSocket
@@ -20,6 +20,20 @@ A lightweight web panel to install, manage, and monitor servers running [MasterD
 ---
 
 ## Installation
+
+- Due to different mighty issues and instablities, it's better to always create a "screen" session and then after that, begin installation to avoid any interuptions or breaks:
+
+```bash
+screen -S mrvpn
+```
+
+- Now, when ever you got disconnected and got connected back, get back where you left off and see what ever was in ther seesion, or continue easily with:
+
+```bash
+screen -r mrvpn
+```
+
+- Installtion Command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/install.sh -o install.sh
