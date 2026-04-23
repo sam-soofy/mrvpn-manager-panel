@@ -281,25 +281,25 @@ PING_COLD_THRESHOLD_SECONDS = 15.0
 
 # Maximum control blocks packed together in one outgoing batch.
 # Clamped to [1, 64].
-MAX_PACKETS_PER_BATCH = 12
+MAX_PACKETS_PER_BATCH = 16
 
 # ARQ data/control behavior.
 # These values are clamped in code and should stay internally consistent.
-ARQ_WINDOW_SIZE = 120
+ARQ_WINDOW_SIZE = 320
 ARQ_INITIAL_RTO_SECONDS = 0.2
 ARQ_MAX_RTO_SECONDS = 0.9
 ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.3
 ARQ_CONTROL_MAX_RTO_SECONDS = 1.0
-ARQ_MAX_CONTROL_RETRIES = 20
+ARQ_MAX_CONTROL_RETRIES = 60
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
 ARQ_DATA_PACKET_TTL_SECONDS = 1800.0
 ARQ_CONTROL_PACKET_TTL_SECONDS = 900.0
-ARQ_MAX_DATA_RETRIES = 40
+ARQ_MAX_DATA_RETRIES = 120
 
 # Maximum out-of-order gap ahead of rcvNxt that can trigger STREAM_DATA_NACK.
 # 0 disables NACK generation entirely.
 # Keep this small so only near-miss gaps cause early resend requests.
-ARQ_DATA_NACK_MAX_GAP = 8
+ARQ_DATA_NACK_MAX_GAP = 12
 
 # Minimum seconds between repeated NACKs for the same missing sequence number.
 # Clamped to [0.1s, 30s].
