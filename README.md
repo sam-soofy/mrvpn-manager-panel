@@ -4,6 +4,8 @@
 
 A lightweight web panel to install, manage, and monitor servers running [MasterDnsVPN](https://github.com/masterking32/MasterDnsVPN).
 
+**Still in development, be cautious about security.**
+
 ---
 
 ## What It Does

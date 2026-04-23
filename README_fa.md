@@ -2,6 +2,8 @@
 
 یک پنل مدیریت سبک برای نصب، مدیریت و مانیتورینگ سرورهای [MasterDnsVPN](https://github.com/masterking32/MasterDnsVPN).
 
+**هنوز در حال توسعه است، در مورد امنیت محتاط باشید.**
+
 ---
 
 > 🌐 [English README](README.md)
