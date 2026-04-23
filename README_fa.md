@@ -23,6 +23,19 @@
 ---
 
 ## نصب (Installation)
+- بهتر است که ابتدا یک سشن با screen ایجاد کنید تا زمانی که ssh لحظه قطع میشه و میروید و میاید مشکلی پیش نیاد و چیزی ناقص نشه
+
+```bash
+screen -S mrvpn
+```
+
+- حالا با خیال راحت نصب را انجام میدید و اگر قطع شدید و دوباره با ssh وصل شدید و خواستید برگردید به همونجا خیلی راحت دستور زیر را بزنید
+
+```bash
+screen -r mrvpn
+```
+
+- دستور نصب :
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sam-soofy/mrvpn-manager-panel/main/install.sh -o install.sh
