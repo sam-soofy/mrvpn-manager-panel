@@ -222,7 +222,7 @@ ENCRYPTION_KEY_FILE = "encrypt_key.txt"
 # Maximum packable control blocks emitted in one response.
 # Keep this aligned with the client sample unless you intentionally want larger
 # packed bursts from the server.
-MAX_PACKETS_PER_BATCH = 24
+MAX_PACKETS_PER_BATCH = 16
 
 # Duplicate the last packed control-block response this many dispatcher turns.
 # 1 = disabled.
@@ -236,26 +236,26 @@ STREAM_RESULT_PACKET_TTL_SECONDS = 150.0
 STREAM_FAILURE_PACKET_TTL_SECONDS = 60.0
 
 # ARQ timing / retry profile.
-ARQ_WINDOW_SIZE = 640
-ARQ_INITIAL_RTO_SECONDS = 0.2
-ARQ_MAX_RTO_SECONDS = 0.9
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.3
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.0
-ARQ_MAX_CONTROL_RETRIES = 150
-ARQ_INACTIVITY_TIMEOUT_SECONDS = 1800.0
-ARQ_DATA_PACKET_TTL_SECONDS = 2400.0
-ARQ_CONTROL_PACKET_TTL_SECONDS = 1200.0
-ARQ_MAX_DATA_RETRIES = 400
+ARQ_WINDOW_SIZE = 320
+ARQ_INITIAL_RTO_SECONDS = 0.3
+ARQ_MAX_RTO_SECONDS = 1.5
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.5
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.7
+ARQ_MAX_CONTROL_RETRIES = 80
+ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
+ARQ_DATA_PACKET_TTL_SECONDS = 800.0
+ARQ_CONTROL_PACKET_TTL_SECONDS = 400.0
+ARQ_MAX_DATA_RETRIES = 200
 
 # Maximum out-of-order gap ahead of rcvNxt that can trigger STREAM_DATA_NACK.
 # 0 disables NACK generation entirely.
 # Keep this small so only near-miss gaps cause early resend requests.
-ARQ_DATA_NACK_MAX_GAP = 16
+ARQ_DATA_NACK_MAX_GAP = 24
 
 # Minimum seconds between repeated NACKs for the same missing sequence number.
 # Clamped to [0.1s, 30s].
-ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.2
-ARQ_DATA_NACK_REPEAT_SECONDS = 0.4
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.1
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
 
 ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 90.0
 ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 60.0

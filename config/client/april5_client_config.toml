@@ -193,12 +193,12 @@ COMPRESSION_MIN_SIZE = 150
 
 # Minimum accepted upload/download MTUs after testing.
 # 0 can be used to effectively disable a bound, but keep realistic values.
-MIN_UPLOAD_MTU = 26
+MIN_UPLOAD_MTU = 40
 MIN_DOWNLOAD_MTU = 600
 
 # Initial maximum MTU search bounds.
 # Must be >= the matching MIN value if both are set.
-MAX_UPLOAD_MTU = 32
+MAX_UPLOAD_MTU = 50
 MAX_DOWNLOAD_MTU = 800
 
 # MTU probe retries, timeout, and parallelism.
@@ -305,25 +305,25 @@ MAX_PACKETS_PER_BATCH = 16
 # ARQ data/control behavior.
 # These values are clamped in code and should stay internally consistent.
 ARQ_WINDOW_SIZE = 320
-ARQ_INITIAL_RTO_SECONDS = 0.2
-ARQ_MAX_RTO_SECONDS = 0.9
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.3
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.0
-ARQ_MAX_CONTROL_RETRIES = 60
+ARQ_INITIAL_RTO_SECONDS = 0.3
+ARQ_MAX_RTO_SECONDS = 1.5
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.5
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.7
+ARQ_MAX_CONTROL_RETRIES = 80
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
-ARQ_DATA_PACKET_TTL_SECONDS = 1800.0
-ARQ_CONTROL_PACKET_TTL_SECONDS = 900.0
-ARQ_MAX_DATA_RETRIES = 120
+ARQ_DATA_PACKET_TTL_SECONDS = 800.0
+ARQ_CONTROL_PACKET_TTL_SECONDS = 400.0
+ARQ_MAX_DATA_RETRIES = 200
 
 # Maximum out-of-order gap ahead of rcvNxt that can trigger STREAM_DATA_NACK.
 # 0 disables NACK generation entirely.
 # Keep this small so only near-miss gaps cause early resend requests.
-ARQ_DATA_NACK_MAX_GAP = 12
+ARQ_DATA_NACK_MAX_GAP = 24
 
 # Minimum seconds between repeated NACKs for the same missing sequence number.
 # Clamped to [0.1s, 30s].
-ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.2
-ARQ_DATA_NACK_REPEAT_SECONDS = 0.4
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.1
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
 
 ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 90.0
 ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 60.0
