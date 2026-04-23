@@ -135,3 +135,20 @@ def write_key(content: str, confirmed: bool = False) -> bool:
     KEY_FILE.write_text(content.strip(), encoding="utf-8")
     _delayed_restart()
     return True
+
+
+def write_client_config(
+    content: str, confirmed: bool = False, version: str = ""
+) -> bool:
+    if not confirmed:
+        return False
+    # Must be the client specific version config
+    if not version:
+        return False
+
+    template = _CLIENT_CFG_DIR / f"{version}_client_config.toml"
+    if not template.exists():
+        return False
+    template.write_text(content, encoding="utf-8")
+
+    return True
