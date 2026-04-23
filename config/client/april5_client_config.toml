@@ -194,17 +194,17 @@ COMPRESSION_MIN_SIZE = 150
 # Minimum accepted upload/download MTUs after testing.
 # 0 can be used to effectively disable a bound, but keep realistic values.
 MIN_UPLOAD_MTU = 26
-MIN_DOWNLOAD_MTU = 340
+MIN_DOWNLOAD_MTU = 600
 
 # Initial maximum MTU search bounds.
 # Must be >= the matching MIN value if both are set.
 MAX_UPLOAD_MTU = 32
-MAX_DOWNLOAD_MTU = 512
+MAX_DOWNLOAD_MTU = 800
 
 # MTU probe retries, timeout, and parallelism.
 # Retries and parallelism must be >= 1.
-MTU_TEST_RETRIES = 2
-MTU_TEST_TIMEOUT = 1.7
+MTU_TEST_RETRIES = 3
+MTU_TEST_TIMEOUT = 1.8
 MTU_TEST_PARALLELISM = 24
 
 # Export successful MTU-tested resolvers to a file.
