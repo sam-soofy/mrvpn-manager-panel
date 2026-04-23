@@ -177,20 +177,20 @@ COMPRESSION_MIN_SIZE = 150
 
 # Minimum accepted upload/download MTUs after testing.
 # 0 can be used to effectively disable a bound, but keep realistic values.
-MIN_UPLOAD_MTU = 40
+MIN_UPLOAD_MTU = 37
 MIN_DOWNLOAD_MTU = 600
 
 # Initial maximum MTU search bounds.
 # Must be >= the matching MIN value if both are set.
-MAX_UPLOAD_MTU = 50
+MAX_UPLOAD_MTU = 45
 MAX_DOWNLOAD_MTU = 800
 
 # MTU probe retries and timeout.
 # Parallelism is auto-raised internally when resolver count is large, but you
 # can still override it in advanced setups if needed.
 MTU_TEST_RETRIES = 3
-MTU_TEST_TIMEOUT = 1.8
-MTU_TEST_PARALLELISM = 24
+MTU_TEST_TIMEOUT = 1.5
+MTU_TEST_PARALLELISM = 16
 
 # Export successful MTU-tested resolvers to a file.
 SAVE_MTU_SERVERS_TO_FILE = false
@@ -281,15 +281,15 @@ PING_COLD_THRESHOLD_SECONDS = 15.0
 
 # Maximum control blocks packed together in one outgoing batch.
 # Clamped to [1, 64].
-MAX_PACKETS_PER_BATCH = 16
+MAX_PACKETS_PER_BATCH = 24
 
 # ARQ data/control behavior.
 # These values are clamped in code and should stay internally consistent.
 ARQ_WINDOW_SIZE = 320
 ARQ_INITIAL_RTO_SECONDS = 0.3
-ARQ_MAX_RTO_SECONDS = 1.5
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.5
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.7
+ARQ_MAX_RTO_SECONDS = 1.2
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.4
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.3
 ARQ_MAX_CONTROL_RETRIES = 80
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
 ARQ_DATA_PACKET_TTL_SECONDS = 800.0
@@ -299,11 +299,11 @@ ARQ_MAX_DATA_RETRIES = 200
 # Maximum out-of-order gap ahead of rcvNxt that can trigger STREAM_DATA_NACK.
 # 0 disables NACK generation entirely.
 # Keep this small so only near-miss gaps cause early resend requests.
-ARQ_DATA_NACK_MAX_GAP = 24
+ARQ_DATA_NACK_MAX_GAP = 8
 
 # Minimum seconds between repeated NACKs for the same missing sequence number.
 # Clamped to [0.1s, 30s].
-ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.1
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.2
 ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
 
 ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 90.0
