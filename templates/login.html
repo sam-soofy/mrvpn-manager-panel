@@ -4,6 +4,35 @@
   <meta charset="UTF-8">
   <title>MRVPN Login</title>
   <link rel="stylesheet" href="/static/css/login.css">
+  <style>
+    .site-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      padding: 12px 20px;
+      font-size: 12px;
+      color: #555f6e;
+      background: rgba(11, 14, 20, 0.85);
+      backdrop-filter: blur(4px);
+      border-top: 1px solid #1e2732;
+    }
+    .site-footer a {
+      color: #555f6e;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.15s;
+    }
+    .site-footer a:hover { color: #39bae6; }
+    .site-footer .footer-sep { color: #1e2732; user-select: none; }
+  </style>
 </head>
 <body>
 <div class="card">
@@ -15,6 +44,19 @@
   </form>
   <div id="error"></div>
 </div>
+
+<footer class="site-footer">
+  <span>MRVPN Manager Panel</span>
+  <span class="footer-sep">|</span>
+  <a href="https://t.me/sami_lights" target="_blank" rel="noopener">
+    📢 Channel&nbsp;<strong>@sami_lights</strong>
+  </a>
+  <span class="footer-sep">·</span>
+  <a href="https://t.me/samsoofy" target="_blank" rel="noopener">
+    💬 Contact&nbsp;<strong>@samsoofy</strong>
+  </a>
+</footer>
+
 <script>
 document.getElementById('loginForm').addEventListener('submit', async e => {
   e.preventDefault();

@@ -8,7 +8,6 @@
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Auth loading screen — shown until verifyAuth() succeeds */
     #auth-loading {
       position: fixed;
       inset: 0;
@@ -20,17 +19,49 @@
       font-size: 14px;
       z-index: 999;
     }
-
-    /* Header and main are hidden until JS reveals them after auth */
     #page-header,
     #page-main {
       display: none;
     }
+
+    /* ── Site footer ── */
+    .site-footer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 20px;
+      padding: 18px 20px 24px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .site-footer a {
+      color: var(--muted);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: color 0.15s;
+    }
+    .site-footer a:hover { color: var(--accent); }
+    .site-footer .footer-sep {
+      color: var(--border);
+      user-select: none;
+    }
+
+    /* Reset button — left-anchored in modal footer */
+    #cfg-reset-btn {
+      margin-right: auto;
+      color: var(--yellow);
+      border-color: var(--yellow);
+      opacity: 0.75;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+    #cfg-reset-btn:hover { opacity: 1; }
   </style>
 </head>
 <body>
 
-<!-- Shown while verifyAuth() runs; hidden on success, page stays on /login on failure -->
 <div id="auth-loading">Authenticating…</div>
 
 <header id="page-header">
@@ -100,6 +131,21 @@
 
 </main>
 
+<!-- ─────────────────────────────────────────────
+     Site footer — Telegram links
+───────────────────────────────────────────── -->
+<footer class="site-footer">
+  <span>MRVPN Manager Panel</span>
+  <span class="footer-sep">|</span>
+  <a href="https://t.me/sami_lights" target="_blank" rel="noopener">
+    📢 Channel&nbsp;<strong>@sami_lights</strong>
+  </a>
+  <span class="footer-sep">·</span>
+  <a href="https://t.me/samsoofy" target="_blank" rel="noopener">
+    💬 Contact&nbsp;<strong>@samsoofy</strong>
+  </a>
+</footer>
+
 <!-- ═══════════════════════════════════════
      Modal: Config Editor
 ════════════════════════════════════════ -->
@@ -113,10 +159,12 @@
       <textarea id="cfg-textarea" class="code-area" spellcheck="false"></textarea>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost"   onclick="closeModal('cfg-modal')">Cancel</button>
-      <button class="btn btn-primary" id="cfg-save-btn"     onclick="saveConfig()">Save Changes</button>
-      <button class="btn btn-primary" id="cfg-save-restart-btn"     onclick="saveConfig()">Save &amp; Restart VPN</button>
-      <button class="btn btn-primary" id="cfg-download-btn" onclick="downloadConfigFiles()" style="display:none;">⬇ Download File</button>
+      <!-- Reset button anchored to the left via margin-right:auto in CSS -->
+      <button class="btn btn-ghost btn-sm" id="cfg-reset-btn" onclick="resetConfig()">↺ Reset to Default</button>
+      <button class="btn btn-ghost"    onclick="closeModal('cfg-modal')">Cancel</button>
+      <button class="btn btn-primary"  id="cfg-save-btn"         onclick="saveConfig()">Save Changes</button>
+      <button class="btn btn-primary"  id="cfg-save-restart-btn" onclick="saveConfig()">Save &amp; Restart VPN</button>
+      <button class="btn btn-primary"  id="cfg-download-btn"     onclick="downloadConfigFiles()">⬇ Download File</button>
     </div>
   </div>
 </div>

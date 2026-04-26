@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from modules.auth import require_auth
 from modules.config_editor import (read_client_config, read_config,
                                    read_installed_version, read_key,
+                                   reset_client_config, reset_config,
                                    write_client_config, write_config,
                                    write_key)
 
@@ -47,7 +48,6 @@ def config_key():
 @config_bp.route("/api/config/client", methods=["GET", "POST"])
 @require_auth
 def config_client():
-    """Return/write the version-appropriate client config with the live domain injected."""
     version = read_installed_version()
     content = read_client_config()
 
@@ -60,7 +60,6 @@ def config_client():
             }
         )
 
-    # write_client_config
     data = request.get_json(silent=True) or {}
     if not data.get("confirmed"):
         return jsonify({"requires_confirmation": True, "message": _CONFIRM_MSG})
@@ -68,6 +67,20 @@ def config_client():
     success = write_client_config(
         data.get("content", ""), confirmed=True, version=version
     )
-    return jsonify(
-        {"ok": success, "message": "Saved and restarted" if success else "Failed"}
-    )
+    return jsonify({"ok": success, "message": "Saved" if success else "Failed"})
+
+
+@config_bp.route("/api/config/server/reset", methods=["POST"])
+@require_auth
+def config_server_reset():
+    """Reset server_config.toml to the shipped default and restart VPN."""
+    ok, message = reset_config()
+    return jsonify({"ok": ok, "message": message}), (200 if ok else 500)
+
+
+@config_bp.route("/api/config/client/reset", methods=["POST"])
+@require_auth
+def config_client_reset():
+    """Reset client config template to the shipped default."""
+    ok, message = reset_client_config()
+    return jsonify({"ok": ok, "message": message}), (200 if ok else 500)

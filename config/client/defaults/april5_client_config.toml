@@ -203,7 +203,7 @@ MAX_DOWNLOAD_MTU = 800
 
 # MTU probe retries, timeout, and parallelism.
 # Retries and parallelism must be >= 1.
-MTU_TEST_RETRIES = 3
+MTU_TEST_RETRIES = 2
 MTU_TEST_TIMEOUT = 1.7
 MTU_TEST_PARALLELISM = 24
 

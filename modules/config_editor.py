@@ -12,6 +12,14 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _VERSION_FILE = _PROJECT_ROOT / "installed_version.txt"
 _CLIENT_CFG_DIR = _PROJECT_ROOT / "config" / "client"
 
+# Default template files (shipped with the repo, live in panel root dir)
+_DEFAULT_SERVER_TMPL = staticmethod(
+    lambda v: _PROJECT_ROOT / f"config/tuned/defaults/{v}_server_config.toml"
+)
+_DEFAULT_CLIENT_TMPL = staticmethod(
+    lambda v: _PROJECT_ROOT / f"config/client/defaults/{v}_client_config.toml"
+)
+
 # Maps CONFIG_VERSION values found in server_config.toml → our version strings.
 _CONFIG_VERSION_MAP = {"10": "april5", "12": "april12"}
 
@@ -47,14 +55,12 @@ def read_installed_version() -> str:
         v = _VERSION_FILE.read_text(encoding="utf-8").strip()
         if v:
             return v
-
-    # Fallback — detect from the running config and persist it
     v = _detect_version_from_config()
     if v:
         try:
             _VERSION_FILE.write_text(v, encoding="utf-8")
         except Exception:
-            pass  # best-effort; not fatal
+            pass
     return v
 
 
@@ -74,9 +80,7 @@ def read_key() -> str:
 
 
 def _extract_domain() -> str:
-    """Parse DOMAIN from the live server_config.toml.
-    Line looks like:  DOMAIN = ["vpn.example.com"]
-    Returns first domain string, or '' on any error."""
+    """Parse DOMAIN from the live server_config.toml."""
     try:
         content = SERVER_CFG.read_text(encoding="utf-8")
         m = re.search(r'DOMAIN\s*=\s*\[\s*"([^"]+)"', content)
@@ -87,7 +91,6 @@ def _extract_domain() -> str:
 
 
 def read_client_config() -> str:
-    """Load the version-specific client config template and inject the live domain."""
     version = read_installed_version()
     if not version:
         return ""
@@ -144,13 +147,64 @@ def write_client_config(
 ) -> bool:
     if not confirmed:
         return False
-    # Must be the client specific version config
     if not version:
         return False
-
     template = _CLIENT_CFG_DIR / f"{version}_client_config.toml"
     if not template.exists():
         return False
     template.write_text(content, encoding="utf-8")
-
     return True
+
+
+# ── Reset helpers ──────────────────────────────────────────────────────────────
+
+
+def reset_config() -> tuple[bool, str]:
+    """Reset server_config.toml to the shipped default template with domain injected.
+
+    Domain is read from the *live* config before overwriting it, so the
+    currently configured domain is preserved in the reset result.
+    """
+    version = read_installed_version()
+    if not version:
+        return False, "Installed version unknown — cannot determine default template"
+
+    default_tmpl = _PROJECT_ROOT / f"config/tuned/defaults/{version}_server_config.toml"
+    if not default_tmpl.exists():
+        return False, f"Default template not found: {default_tmpl.name}"
+
+    # Read domain BEFORE overwriting the live config
+    domain = _extract_domain()
+    content = default_tmpl.read_text(encoding="utf-8")
+    if domain:
+        content = content.replace("{{DOMAIN}}", domain)
+
+    SERVER_CFG.write_text(content, encoding="utf-8")
+    _delayed_restart()
+    return True, "Reset to default — MasterDnsVPN restarting"
+
+
+def reset_client_config() -> tuple[bool, str]:
+    """Reset the client config template to the shipped default with domain + key injected."""
+    version = read_installed_version()
+    if not version:
+        return False, "Installed version unknown — cannot determine default template"
+
+    default_tmpl = (
+        _PROJECT_ROOT / f"config/client/defaults/{version}_client_config.toml"
+    )
+    if not default_tmpl.exists():
+        return False, f"Default template not found: {default_tmpl.name}"
+
+    content = default_tmpl.read_text(encoding="utf-8")
+    domain = _extract_domain()
+    if domain:
+        content = content.replace("{{DOMAIN}}", domain)
+    key = read_key()
+    if key:
+        content = content.replace("{{ENC_KEY}}", key)
+
+    dest = _CLIENT_CFG_DIR / f"{version}_client_config.toml"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(content, encoding="utf-8")
+    return True, "Client config reset to default"

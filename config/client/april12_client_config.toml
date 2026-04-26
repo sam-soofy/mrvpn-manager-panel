@@ -161,12 +161,12 @@ BASE_ENCODE_DATA = false
 # 1 = ZSTD
 # 2 = LZ4
 # 3 = ZLIB
-UPLOAD_COMPRESSION_TYPE = 0
+UPLOAD_COMPRESSION_TYPE = 2
 DOWNLOAD_COMPRESSION_TYPE = 2
 
 # Minimum payload size before compression is attempted.
 # Must be >= 120.
-COMPRESSION_MIN_SIZE = 150
+COMPRESSION_MIN_SIZE = 100
 
 # ------------------------------------------------------------------------------
 # 6) MTU Discovery
@@ -177,20 +177,20 @@ COMPRESSION_MIN_SIZE = 150
 
 # Minimum accepted upload/download MTUs after testing.
 # 0 can be used to effectively disable a bound, but keep realistic values.
-MIN_UPLOAD_MTU = 30
-MIN_DOWNLOAD_MTU = 606
+MIN_UPLOAD_MTU = 37
+MIN_DOWNLOAD_MTU = 834
 
 # Initial maximum MTU search bounds.
 # Must be >= the matching MIN value if both are set.
-MAX_UPLOAD_MTU = 33
-MAX_DOWNLOAD_MTU = 800
+MAX_UPLOAD_MTU = 43
+MAX_DOWNLOAD_MTU = 920
 
 # MTU probe retries and timeout.
 # Parallelism is auto-raised internally when resolver count is large, but you
 # can still override it in advanced setups if needed.
 MTU_TEST_RETRIES = 3
 MTU_TEST_TIMEOUT = 1.7
-MTU_TEST_PARALLELISM = 16
+MTU_TEST_PARALLELISM = 24
 
 # Export successful MTU-tested resolvers to a file.
 SAVE_MTU_SERVERS_TO_FILE = false
@@ -229,7 +229,7 @@ TUNNEL_PACKET_TIMEOUT_SECONDS = 6.0
 DISPATCHER_IDLE_POLL_INTERVAL_SECONDS = 0.020
 
 # Channel sizes for async RX pipelines are auto-raised internally when needed.
-RX_CHANNEL_SIZE = 4096
+RX_CHANNEL_SIZE = 6144
 
 # UDP connection pool size per resolver key.
 # Local UDP ASSOCIATE read timeout.
@@ -247,8 +247,8 @@ CLIENT_CANCELLED_SETUP_RETENTION_SECONDS = 120.0
 # Session init retry profile.
 # These shape retry delays after failed init/reset attempts.
 # Base/step/max are durations; linear_after is a count threshold.
-SESSION_INIT_RETRY_BASE_SECONDS = 1.0
-SESSION_INIT_RETRY_STEP_SECONDS = 1.0
+SESSION_INIT_RETRY_BASE_SECONDS = 0.7
+SESSION_INIT_RETRY_STEP_SECONDS = 0.7
 SESSION_INIT_RETRY_LINEAR_AFTER = 5
 SESSION_INIT_RETRY_MAX_SECONDS = 60.0
 
@@ -259,7 +259,7 @@ SESSION_INIT_BUSY_RETRY_INTERVAL_SECONDS = 60.0
 # Concurrent racing session initialization attempts.
 # Higher values improve reliability on unstable networks but increase DNS traffic.
 # Clamped to [1, 5].
-SESSION_INIT_RACING_COUNT = 3
+SESSION_INIT_RACING_COUNT = 4
 
 # Ping/keepalive pacing.
 # These control how aggressively the client sends ping traffic depending on
@@ -281,23 +281,24 @@ PING_COLD_THRESHOLD_SECONDS = 15.0
 
 MAX_PACKETS_PER_BATCH = 8
 
-ARQ_WINDOW_SIZE = 256
-ARQ_INITIAL_RTO_SECONDS = 0.2
-ARQ_MAX_RTO_SECONDS = 1.2
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.3
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.4
-ARQ_MAX_CONTROL_RETRIES = 60
+ARQ_WINDOW_SIZE = 576
+ARQ_INITIAL_RTO_SECONDS = 0.40
+ARQ_MAX_RTO_SECONDS = 1.6
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.50
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.8
+ARQ_MAX_CONTROL_RETRIES = 120
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
 ARQ_DATA_PACKET_TTL_SECONDS = 1200.0
 ARQ_CONTROL_PACKET_TTL_SECONDS = 600.0
-ARQ_MAX_DATA_RETRIES = 140
+ARQ_MAX_DATA_RETRIES = 280
 
-ARQ_DATA_NACK_MAX_GAP = 16
-ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.2
-ARQ_DATA_NACK_REPEAT_SECONDS = 0.5
+ARQ_DATA_NACK_MAX_GAP = 32
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.3
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.7
 
-ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 90.0
-ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 60.0
+ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 60.0
+ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 45.0
+
 
 # ------------------------------------------------------------------------------
 # 9) Logging
