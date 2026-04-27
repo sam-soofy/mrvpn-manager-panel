@@ -23,6 +23,38 @@ async function restartVPN() {
   }
 }
 
+// ── Update Panel ──────────────────────────────────────
+async function updatePanel() {
+  if (
+    !confirm(
+      "Update panel to the latest version?\n\n" +
+        "This will pull from GitHub (main branch) and restart the panel.\n" +
+        "The page will reload automatically after ~5 seconds.",
+    )
+  )
+    return;
+
+  console.log("[MRVPN] updatePanel: sending POST /api/panel/update");
+  try {
+    const res = await apiFetch("/api/panel/update", { method: "POST" });
+    const data = await res.json();
+    console.log("[MRVPN] updatePanel: response:", data);
+
+    if (data.ok) {
+      showToast("Panel updated — reloading in ~5s ✓", "success");
+      setTimeout(() => window.location.reload(), 5000);
+    } else {
+      showToast("Update failed: " + (data.error || "unknown error"), "error");
+    }
+  } catch (err) {
+    console.error("[MRVPN] updatePanel error:", err.message);
+    // Network error is expected if the panel restarted before sending the response.
+    // Treat it as success and reload anyway.
+    showToast("Panel restarting — reloading in ~5s", "success");
+    setTimeout(() => window.location.reload(), 5000);
+  }
+}
+
 // ── Close modals on overlay click ─────────────────────
 document.querySelectorAll(".modal-overlay").forEach((overlay) => {
   overlay.addEventListener("click", (e) => {
