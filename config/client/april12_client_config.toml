@@ -114,7 +114,7 @@ LOCAL_DNS_CACHE_FLUSH_INTERVAL_SECONDS = 60.0
 # 7 = Least Loss Top Random (random choice inside the best 10% loss tier)
 # 8 = Least Loss Top Round Robin (round-robin inside the best 10% loss tier)
 # Modes 3, 4, 5, 6, 7, and 8 use runtime feedback from sends/successes.
-RESOLVER_BALANCING_STRATEGY = 5
+RESOLVER_BALANCING_STRATEGY = 4
 
 # Duplicate each normal outgoing tunnel packet this many times.
 # Clamped in code to [1, 4].
@@ -177,19 +177,19 @@ COMPRESSION_MIN_SIZE = 100
 
 # Minimum accepted upload/download MTUs after testing.
 # 0 can be used to effectively disable a bound, but keep realistic values.
-MIN_UPLOAD_MTU = 37
+MIN_UPLOAD_MTU = 44
 MIN_DOWNLOAD_MTU = 834
 
 # Initial maximum MTU search bounds.
 # Must be >= the matching MIN value if both are set.
-MAX_UPLOAD_MTU = 43
-MAX_DOWNLOAD_MTU = 920
+MAX_UPLOAD_MTU = 44
+MAX_DOWNLOAD_MTU = 834
 
 # MTU probe retries and timeout.
 # Parallelism is auto-raised internally when resolver count is large, but you
 # can still override it in advanced setups if needed.
-MTU_TEST_RETRIES = 3
-MTU_TEST_TIMEOUT = 1.7
+MTU_TEST_RETRIES = 2
+MTU_TEST_TIMEOUT = 1.5
 MTU_TEST_PARALLELISM = 24
 
 # Export successful MTU-tested resolvers to a file.
@@ -282,10 +282,10 @@ PING_COLD_THRESHOLD_SECONDS = 15.0
 MAX_PACKETS_PER_BATCH = 8
 
 ARQ_WINDOW_SIZE = 576
-ARQ_INITIAL_RTO_SECONDS = 0.40
-ARQ_MAX_RTO_SECONDS = 1.6
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.50
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.8
+ARQ_INITIAL_RTO_SECONDS = 0.30
+ARQ_MAX_RTO_SECONDS = 1.4
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.45
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.55
 ARQ_MAX_CONTROL_RETRIES = 120
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
 ARQ_DATA_PACKET_TTL_SECONDS = 1200.0
@@ -293,8 +293,8 @@ ARQ_CONTROL_PACKET_TTL_SECONDS = 600.0
 ARQ_MAX_DATA_RETRIES = 280
 
 ARQ_DATA_NACK_MAX_GAP = 32
-ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.3
-ARQ_DATA_NACK_REPEAT_SECONDS = 0.7
+ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.25
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
 
 ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 60.0
 ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 45.0
