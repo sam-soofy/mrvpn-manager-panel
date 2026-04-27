@@ -6,6 +6,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify
 
 from modules.auth import require_auth
+from modules.config_editor import reset_client_config, reset_config
 from modules.monitor import latest_snapshot, state_lock
 from modules.service_manager import restart_masterdnsvpn
 
@@ -82,6 +83,13 @@ def api_panel_update():
         stderr = exc.stderr.decode(errors="replace").strip() if exc.stderr else ""
         return jsonify({"ok": False, "error": stderr or str(exc)}), 500
 
+    ok, message = reset_config()
+    if ok:
+        ok, message = reset_client_config()
+    else:
+        ok, message = reset_client_config()
+        ok = False
+
     # Delay restart so this HTTP response reaches the browser before the
     # process is replaced. (Same pattern used by config_editor._delayed_restart)
     def _restart():
@@ -89,4 +97,13 @@ def api_panel_update():
         subprocess.run(["systemctl", "restart", _PANEL_SERVICE], check=False)
 
     threading.Thread(target=_restart, daemon=True).start()
-    return jsonify({"ok": True, "message": "Panel updated — restarting in ~2s"})
+
+    if ok:
+        return jsonify({"ok": True, "message": "Panel updated — restarting in ~2s"})
+    else:
+        return jsonify(
+            {
+                "ok": False,
+                "message": "! Something went wrong! But panel might be updated. restarting in ~2s",
+            }
+        )
