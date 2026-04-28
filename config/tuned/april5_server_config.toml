@@ -46,11 +46,11 @@ UDP_PORT = 53
 
 # Number of UDP reader goroutines.
 # If <= 0, code falls back to an auto default.
-UDP_READERS = 16
+UDP_READERS = 8
 
 # Number of DNS request workers that process incoming packets.
 # If <= 0, code falls back to an auto default.
-DNS_REQUEST_WORKERS = 24
+DNS_REQUEST_WORKERS = 12
 
 # Maximum queued requests waiting behind request workers.
 # If the queue is full, packets are dropped and rate-limited overload logs appear.
@@ -76,7 +76,7 @@ DROP_LOG_INTERVAL_SECONDS = 2.0
 
 # Worker count for deferred per-session processing.
 # These workers serialize heavy or ordering-sensitive tasks behind session keys.
-DEFERRED_SESSION_WORKERS = 12
+DEFERRED_SESSION_WORKERS = 8
 
 # Queue limit for deferred per-session work.
 # Keep this a bit higher than the client-side setup pressure so bursty SYN/SOCKS/DNS
@@ -225,28 +225,26 @@ STREAM_RESULT_PACKET_TTL_SECONDS = 150.0
 STREAM_FAILURE_PACKET_TTL_SECONDS = 60.0
 
 # ARQ data/control behavior.
-
 MAX_PACKETS_PER_BATCH = 16
 PACKET_BLOCK_CONTROL_DUPLICATION = 2
 
 ARQ_WINDOW_SIZE = 640
-ARQ_INITIAL_RTO_SECONDS = 0.30
-ARQ_MAX_RTO_SECONDS = 1.5
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.45
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.65
-ARQ_MAX_CONTROL_RETRIES = 240
+ARQ_INITIAL_RTO_SECONDS = 0.35
+ARQ_MAX_RTO_SECONDS = 1.4
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.50
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.60
+ARQ_MAX_CONTROL_RETRIES = 180
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
 ARQ_DATA_PACKET_TTL_SECONDS = 1200.0
 ARQ_CONTROL_PACKET_TTL_SECONDS = 600.0
-ARQ_MAX_DATA_RETRIES = 520
+ARQ_MAX_DATA_RETRIES = 300
 
-ARQ_DATA_NACK_MAX_GAP = 64
+ARQ_DATA_NACK_MAX_GAP = 32
 ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.25
 ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
 
 ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 60.0
 ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 45.0
-
 
 # ------------------------------------------------------------------------------
 # 9) Logging

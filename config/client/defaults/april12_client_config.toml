@@ -114,7 +114,7 @@ LOCAL_DNS_CACHE_FLUSH_INTERVAL_SECONDS = 60.0
 # 7 = Least Loss Top Random (random choice inside the best 10% loss tier)
 # 8 = Least Loss Top Round Robin (round-robin inside the best 10% loss tier)
 # Modes 3, 4, 5, 6, 7, and 8 use runtime feedback from sends/successes.
-RESOLVER_BALANCING_STRATEGY = 4
+RESOLVER_BALANCING_STRATEGY = 5
 
 # Duplicate each normal outgoing tunnel packet this many times.
 # Clamped in code to [1, 4].
@@ -128,7 +128,7 @@ SETUP_PACKET_DUPLICATION_COUNT = 5
 # Stream-aware resolver failover.
 # If a stream keeps resending on the same preferred resolver, it can move.
 # Threshold is clamped to [1, 128].
-STREAM_RESOLVER_FAILOVER_RESEND_THRESHOLD = 5
+STREAM_RESOLVER_FAILOVER_RESEND_THRESHOLD = 3
 
 # Minimum seconds between preferred-resolver switches for the same stream.
 # Clamped to [0.1s, 120s].
@@ -178,18 +178,18 @@ COMPRESSION_MIN_SIZE = 100
 # Minimum accepted upload/download MTUs after testing.
 # 0 can be used to effectively disable a bound, but keep realistic values.
 MIN_UPLOAD_MTU = 44
-MIN_DOWNLOAD_MTU = 834
+MIN_DOWNLOAD_MTU = 755
 
 # Initial maximum MTU search bounds.
 # Must be >= the matching MIN value if both are set.
 MAX_UPLOAD_MTU = 44
-MAX_DOWNLOAD_MTU = 834
+MAX_DOWNLOAD_MTU = 755
 
 # MTU probe retries and timeout.
 # Parallelism is auto-raised internally when resolver count is large, but you
 # can still override it in advanced setups if needed.
 MTU_TEST_RETRIES = 2
-MTU_TEST_TIMEOUT = 1.5
+MTU_TEST_TIMEOUT = 1.3
 MTU_TEST_PARALLELISM = 24
 
 # Export successful MTU-tested resolvers to a file.
@@ -226,10 +226,21 @@ TUNNEL_PACKET_TIMEOUT_SECONDS = 6.0
 # Dispatcher idle polling interval.
 # Lower values reduce wake latency but consume more CPU.
 # Clamped to [0.001s, 1s].
-DISPATCHER_IDLE_POLL_INTERVAL_SECONDS = 0.020
+DISPATCHER_IDLE_POLL_INTERVAL_SECONDS = 0.030
 
 # Channel sizes for async RX pipelines are auto-raised internally when needed.
-RX_CHANNEL_SIZE = 6144
+TX_CHANNEL_SIZE = 6144
+RX_CHANNEL_SIZE = 8192
+
+# UDP connection pool size per resolver key.
+# Clamped to [1, 1024].
+RESOLVER_UDP_CONNECTION_POOL_SIZE = 64
+
+# Initial queue/store capacities.
+# These reduce reallocations under many active streams.
+STREAM_QUEUE_INITIAL_CAPACITY = 64
+ORPHAN_QUEUE_INITIAL_CAPACITY = 32
+DNS_RESPONSE_FRAGMENT_STORE_CAPACITY = 256
 
 # UDP connection pool size per resolver key.
 # Local UDP ASSOCIATE read timeout.
@@ -278,14 +289,13 @@ PING_COLD_THRESHOLD_SECONDS = 15.0
 # - Controls data/control retransmission behavior.
 # - Controls per-stream buffering limits and batch packing.
 # ------------------------------------------------------------------------------
-
 MAX_PACKETS_PER_BATCH = 8
 
 ARQ_WINDOW_SIZE = 576
-ARQ_INITIAL_RTO_SECONDS = 0.30
-ARQ_MAX_RTO_SECONDS = 1.4
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.45
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.55
+ARQ_INITIAL_RTO_SECONDS = 0.35
+ARQ_MAX_RTO_SECONDS = 1.3
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.50
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.50
 ARQ_MAX_CONTROL_RETRIES = 120
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
 ARQ_DATA_PACKET_TTL_SECONDS = 1200.0

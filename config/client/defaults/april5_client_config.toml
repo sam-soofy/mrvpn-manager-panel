@@ -124,7 +124,7 @@ SETUP_PACKET_DUPLICATION_COUNT = 5
 # Stream-aware resolver failover.
 # If a stream keeps resending on the same preferred resolver, it can move.
 # Threshold is clamped to [1, 128].
-STREAM_RESOLVER_FAILOVER_RESEND_THRESHOLD = 5
+STREAM_RESOLVER_FAILOVER_RESEND_THRESHOLD = 3
 
 # Minimum seconds between preferred-resolver switches for the same stream.
 # Clamped to [0.1s, 120s].
@@ -194,17 +194,17 @@ COMPRESSION_MIN_SIZE = 100
 # Minimum accepted upload/download MTUs after testing.
 # 0 can be used to effectively disable a bound, but keep realistic values.
 MIN_UPLOAD_MTU = 44
-MIN_DOWNLOAD_MTU = 834
+MIN_DOWNLOAD_MTU = 755
 
 # Initial maximum MTU search bounds.
 # Must be >= the matching MIN value if both are set.
 MAX_UPLOAD_MTU = 44
-MAX_DOWNLOAD_MTU = 834
+MAX_DOWNLOAD_MTU = 755
 
 # MTU probe retries, timeout, and parallelism.
 # Retries and parallelism must be >= 1.
 MTU_TEST_RETRIES = 2
-MTU_TEST_TIMEOUT = 1.5
+MTU_TEST_TIMEOUT = 1.3
 MTU_TEST_PARALLELISM = 24
 
 # Export successful MTU-tested resolvers to a file.
@@ -243,8 +243,8 @@ DISPATCHER_IDLE_POLL_INTERVAL_SECONDS = 0.020
 
 # Channel sizes for async TX/RX pipelines.
 # Clamped in code to [64, 65536].
-TX_CHANNEL_SIZE = 4096
-RX_CHANNEL_SIZE = 6144
+TX_CHANNEL_SIZE = 6144
+RX_CHANNEL_SIZE = 8192
 
 # UDP connection pool size per resolver key.
 # Clamped to [1, 1024].
@@ -297,14 +297,13 @@ PING_COLD_THRESHOLD_SECONDS = 15.0
 # - Controls data/control retransmission behavior.
 # - Controls per-stream buffering limits and batch packing.
 # ------------------------------------------------------------------------------
-
 MAX_PACKETS_PER_BATCH = 8
 
 ARQ_WINDOW_SIZE = 576
-ARQ_INITIAL_RTO_SECONDS = 0.30
-ARQ_MAX_RTO_SECONDS = 1.4
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.45
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.55
+ARQ_INITIAL_RTO_SECONDS = 0.35
+ARQ_MAX_RTO_SECONDS = 1.3
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.50
+ARQ_CONTROL_MAX_RTO_SECONDS = 1.50
 ARQ_MAX_CONTROL_RETRIES = 120
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
 ARQ_DATA_PACKET_TTL_SECONDS = 1200.0
