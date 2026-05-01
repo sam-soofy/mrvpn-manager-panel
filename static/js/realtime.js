@@ -30,11 +30,13 @@ function initSocket() {
   });
 
   socket.on("update", (data) => {
-    setValue("s-cpu",  data.health.cpu.toFixed(1));
-    setValue("s-ram",  data.health.ram.toFixed(1));
+    setValue("s-cpu", data.health.cpu.toFixed(1));
+    setValue("s-ram", data.health.ram.toFixed(1));
     setValue("s-disk", data.health.disk.toFixed(1));
-    setValue("s-rx",   data.speed.rx.toFixed(2));
-    setValue("s-tx",   data.speed.tx.toFixed(2));
+    setValue("s-rx", data.speed.rx.toFixed(2));
+    setValue("s-tx", data.speed.tx.toFixed(2));
+    setValue("s-total-rx", data.totals.rx.toFixed(2));
+    setValue("s-total-tx", data.totals.tx.toFixed(2));
     pushChartPoint(data.health.cpu, data.health.ram);
     setHdrStatus("Live", "var(--green)");
   });
@@ -52,7 +54,10 @@ function setHdrStatus(text, color) {
 // Each stat element has a text node first, then a <span class="stat-unit"> child.
 function setValue(id, val) {
   const el = document.getElementById(id);
-  if (!el) { console.warn("[MRVPN] setValue: element not found:", id); return; }
+  if (!el) {
+    console.warn("[MRVPN] setValue: element not found:", id);
+    return;
+  }
   if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
     el.firstChild.textContent = val;
   }
@@ -74,7 +79,9 @@ function initChart() {
     return;
   }
   if (typeof Chart === "undefined") {
-    console.error("[MRVPN] initChart: Chart.js not loaded (CDN failure?). Live chart disabled.");
+    console.error(
+      "[MRVPN] initChart: Chart.js not loaded (CDN failure?). Live chart disabled.",
+    );
     return;
   }
   try {
@@ -132,7 +139,7 @@ function pushChartPoint(cpu, ram) {
   chart.data.datasets[1].data.push(ram);
   if (chart.data.labels.length > MAX_POINTS) {
     chart.data.labels.shift();
-    chart.data.datasets.forEach(d => d.data.shift());
+    chart.data.datasets.forEach((d) => d.data.shift());
   }
   chart.update();
 }
