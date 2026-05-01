@@ -123,7 +123,7 @@ PACKET_DUPLICATION_COUNT = 3
 
 # Duplicate stream setup packets (STREAM_SYN / SOCKS5_SYN) this many times.
 # Clamped in code to [PACKET_DUPLICATION_COUNT, 5].
-SETUP_PACKET_DUPLICATION_COUNT = 5
+SETUP_PACKET_DUPLICATION_COUNT = 4
 
 # Stream-aware resolver failover.
 # If a stream keeps resending on the same preferred resolver, it can move.
@@ -177,19 +177,19 @@ COMPRESSION_MIN_SIZE = 100
 
 # Minimum accepted upload/download MTUs after testing.
 # 0 can be used to effectively disable a bound, but keep realistic values.
-MIN_UPLOAD_MTU = 44
-MIN_DOWNLOAD_MTU = 755
+MIN_UPLOAD_MTU = 40
+MIN_DOWNLOAD_MTU = 40
 
 # Initial maximum MTU search bounds.
 # Must be >= the matching MIN value if both are set.
-MAX_UPLOAD_MTU = 44
-MAX_DOWNLOAD_MTU = 755
+MAX_UPLOAD_MTU = 40
+MAX_DOWNLOAD_MTU = 40
 
 # MTU probe retries and timeout.
 # Parallelism is auto-raised internally when resolver count is large, but you
 # can still override it in advanced setups if needed.
-MTU_TEST_RETRIES = 2
-MTU_TEST_TIMEOUT = 1.3
+MTU_TEST_RETRIES = 3
+MTU_TEST_TIMEOUT = 0.7
 MTU_TEST_PARALLELISM = 24
 
 # Export successful MTU-tested resolvers to a file.
@@ -216,8 +216,8 @@ MTU_REACTIVE_ADDED_SERVER_LOG_FORMAT = "Resolver {IP} ({DOMAIN}) added back at {
 # Async tunnel runtime worker counts.
 # These can be overridden, but leaving them unset usually lets the client's
 # smart sizing choose a better baseline for the current machine.
-RX_TX_WORKERS = 8
-TUNNEL_PROCESS_WORKERS = 8
+RX_TX_WORKERS = 6
+TUNNEL_PROCESS_WORKERS = 6
 
 # Per-packet tunnel timeout used in async runtime paths.
 # Clamped to [0.5s, 120s].
@@ -229,8 +229,8 @@ TUNNEL_PACKET_TIMEOUT_SECONDS = 6.0
 DISPATCHER_IDLE_POLL_INTERVAL_SECONDS = 0.030
 
 # Channel sizes for async RX pipelines are auto-raised internally when needed.
-TX_CHANNEL_SIZE = 6144
-RX_CHANNEL_SIZE = 8192
+TX_CHANNEL_SIZE = 4096
+RX_CHANNEL_SIZE = 6144
 
 # UDP connection pool size per resolver key.
 # Clamped to [1, 1024].
@@ -289,22 +289,22 @@ PING_COLD_THRESHOLD_SECONDS = 15.0
 # - Controls data/control retransmission behavior.
 # - Controls per-stream buffering limits and batch packing.
 # ------------------------------------------------------------------------------
-MAX_PACKETS_PER_BATCH = 8
+MAX_PACKETS_PER_BATCH = 12
 
-ARQ_WINDOW_SIZE = 576
-ARQ_INITIAL_RTO_SECONDS = 0.35
-ARQ_MAX_RTO_SECONDS = 1.3
-ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.50
-ARQ_CONTROL_MAX_RTO_SECONDS = 1.50
+ARQ_WINDOW_SIZE = 320
+ARQ_INITIAL_RTO_SECONDS = 0.40
+ARQ_MAX_RTO_SECONDS = 1.80
+ARQ_CONTROL_INITIAL_RTO_SECONDS = 0.45
+ARQ_CONTROL_MAX_RTO_SECONDS = 2.0
 ARQ_MAX_CONTROL_RETRIES = 120
 ARQ_INACTIVITY_TIMEOUT_SECONDS = 600.0
 ARQ_DATA_PACKET_TTL_SECONDS = 1200.0
 ARQ_CONTROL_PACKET_TTL_SECONDS = 600.0
-ARQ_MAX_DATA_RETRIES = 280
+ARQ_MAX_DATA_RETRIES = 250
 
-ARQ_DATA_NACK_MAX_GAP = 32
+ARQ_DATA_NACK_MAX_GAP = 24
 ARQ_DATA_NACK_INITIAL_DELAY_SECONDS = 0.25
-ARQ_DATA_NACK_REPEAT_SECONDS = 0.6
+ARQ_DATA_NACK_REPEAT_SECONDS = 0.75
 
 ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS = 60.0
 ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 45.0
@@ -316,4 +316,4 @@ ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS = 45.0
 # ------------------------------------------------------------------------------
 
 # Typical values: DEBUG, INFO, WARN, ERROR
-LOG_LEVEL = "INFO"
+LOG_LEVEL = "ERROR"
