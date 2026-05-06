@@ -132,7 +132,11 @@ main {
 .modal-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .modal-header h2 { font-size: 15px; font-weight: 700; color: var(--text); }
 .modal-body   { padding: 22px; overflow-y: auto; flex: 1; }
-.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; row-gap: 8px; gap: 10px; justify-content: flex-end; }
+
+@media (max-width: 520px) {
+  #cfg-reset-btn { width: 100%; justify-content: center; order: 10; margin-right: 0; }
+}
 
 .code-area {
   width: 100%;
