@@ -30,20 +30,26 @@
       justify-content: center;
       align-items: center;
       flex-wrap: wrap;
-      gap: 6px 20px;
-      padding: 18px 20px 24px;
+      gap: 8px 16px;
+      padding: 18px 20px 28px;
       color: var(--muted);
-      font-size: 12px;
+      font-size: 13px;
     }
     .site-footer a {
-      color: var(--muted);
+      color: var(--text);
       text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      transition: color 0.15s;
+      gap: 6px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-weight: 600;
+      transition: color 0.15s, border-color 0.15s;
     }
-    .site-footer a:hover { color: var(--accent); }
+    .site-footer a strong { color: var(--accent); font-weight: 700; }
+    .site-footer a:hover { color: var(--accent); border-color: var(--accent); }
     .site-footer .footer-sep {
       color: var(--border);
       user-select: none;
@@ -146,12 +152,15 @@
 <footer class="site-footer">
   <span>MRVPN Manager Panel</span>
   <span class="footer-sep">|</span>
-  <a href="https://t.me/sami_lights" target="_blank" rel="noopener">
-    📢 Channel&nbsp;<strong>@sami_lights</strong>
+  <a href="https://t.me/sumi_dev" target="_blank" rel="noopener">
+    📢 Channel&nbsp;<strong>@sumi_dev</strong>
   </a>
   <span class="footer-sep">·</span>
-  <a href="https://t.me/samsoofy" target="_blank" rel="noopener">
-    💬 Contact&nbsp;<strong>@samsoofy</strong>
+  <a href="https://t.me/sumi_dev_chat" target="_blank" rel="noopener">
+    💬 Contact&nbsp;<strong>@sumi_dev_chat</strong>
+  </a>
+  <a href="https://t.me/sami_lights" target="_blank" rel="noopener">
+    🎵 My Light Playlist&nbsp;<strong>@sami_lights</strong>
   </a>
 </footer>
 
